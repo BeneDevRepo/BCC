@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "Tokens.hpp"
@@ -32,6 +33,8 @@ public:
 		inline virtual void print(const std::string& indent = "", const bool isLast = true) const { throw std::runtime_error("Tried to print raw Node"); }
 	};
 
+
+	// expressions:
 	struct ExpressionNode : public Node {
 		inline virtual void print(const std::string& indent, const bool isLast) const { throw std::runtime_error("Tried to print raw Expression Node"); }
 	};
@@ -94,7 +97,32 @@ public:
 	struct FloatLiteralNode : public ExpressionNode {
 		float value;
 		inline FloatLiteralNode(const float value): value(value) {}
-		inline virtual void print(const std::string& indent, const bool isLast) const { std::cout << indent << value << "\n"; }
+		inline virtual void print(const std::string& indent, const bool isLast) const { std::cout << indent << (isLast ? LBRANCH : VBRANCH) << value << "\n"; }
+	};
+
+
+	// Statements:
+	struct StatementNode : public Node {
+		inline virtual void print(const std::string& indent, const bool isLast) const { throw std::runtime_error("Tried to print raw Statement Node"); }
+	};
+
+	struct VariableDeclarationNode : public StatementNode {
+		std::string type; // TODO: fix
+		VariableNode *varName;
+		ExpressionNode *expr;
+		inline VariableDeclarationNode(const std::string& type, VariableNode* varName, ExpressionNode* expr): type(type), varName(varName), expr(expr) {}
+
+		inline virtual void print(const std::string& indent, const bool isLast) const {
+			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+			// std::cout << (type == Type::ADD ? "+" : "-") << "\n";
+			std::cout << "declare\n";
+
+			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
+			std::cout << subIndent << VBRANCH << type << "\n";
+			varName->print(subIndent, expr == nullptr);
+			if(expr)
+				expr->print(subIndent, true);
+		}
 	};
 
 
@@ -104,25 +132,51 @@ public:
 	inline const Token& getToken() { return tokens[currentToken++]; }
 
 
-	// inline VariableDeclarationNode* variableDeclaration() {
-	// 	static constexpr auto isTypename = [](const Token& token) { const Token::Type type = token.type; return type == Token::Type::BOOL || type == Token::Type::INT || type == Token::Type::FLOAT || type == Token::Type::STRING; };
+	inline VariableDeclarationNode* variableDeclaration() {
+		static constexpr auto isTypename = [](const Token& token) { const Token::Type type = token.type; return type == Token::Type::BOOL || type == Token::Type::INT || type == Token::Type::FLOAT || type == Token::Type::STRING; };
 
-	// 	const size_t currentTokenBefore = currentToken;
+		const size_t currentTokenBefore = currentToken;
 
-	// 	if(!isTypename(peekToken()))
-	// 		return nullptr;
+		if(!isTypename(peekToken()))
+			return nullptr;
 		
-	// 	const Token type = getToken();
+		const Token type = getToken(); // consume typename
 
-	// 	if(peekToken().type != Token::Type::EQUAL) {
-	// 		currentToken = currentTokenBefore;
-	// 		return nullptr;
-	// 	}
+
+		VariableNode* name = variable();
+
+		if(!name) {
+			currentToken = currentTokenBefore;
+			return nullptr;
+		}
+
+		if(peekToken().type == Token::Type::SEMICOLON) {
+			return new VariableDeclarationNode(type.value, name, nullptr); // pure declaration
+		}
 		
+
+		if(peekToken().type != Token::Type::EQUAL) {
+			currentToken = currentTokenBefore;
+			return nullptr;
+		}
+		getToken(); // consume '='
+
+		ExpressionNode* expr = expression();
+
+		if(!expr) {
+			currentToken = currentTokenBefore;
+			return nullptr;
+		}
+
+		if(peekToken().type != Token::Type::SEMICOLON) {
+			return nullptr;
+		}
+
+		return new VariableDeclarationNode(type.value, name, expr);
 
 			
-	// 	return nullptr;
-	// }
+		return nullptr;
+	}
 
 	// inline TypenameNode* typeName() {
 	// }
@@ -215,7 +269,8 @@ public:
 		this->tokens = tokens;
 		this->currentToken = 0;
 		
-		ExpressionNode* tree = expression();
+		// ExpressionNode* tree = expression();
+		StatementNode* tree = variableDeclaration();
 
 		return tree;
 	}

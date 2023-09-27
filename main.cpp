@@ -13,7 +13,7 @@
 // }
 // )";
 constexpr const char *const code = R"(
-	1 - 8 + 7 + 6 * 5 * 3
+	int a = 1 - 8 + 7 + 6 * 5 * 3;
 )";
 
 void run() {
@@ -31,7 +31,7 @@ void run() {
 
 	const Parser::Node* tree = parser.parse(tokens);
 
-	std::cout << "Tree:\n";
+	std::cout << "Tree:  " << tree << "\n";
 	tree->print();
 
 	(void)tree;
