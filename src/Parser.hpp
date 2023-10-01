@@ -173,9 +173,9 @@ public:
 
 			for(const StatementNode* s : statements)
 				res += s->toString(indent + 1) + "\n";
-			
+
 			res += space(indent) + closeBrace.value;
-			
+
 			return res;
 		}
 	};
@@ -247,10 +247,13 @@ public:
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
 			std::cout << RBRANCH << "    ArgumentList " << span() << "\n";
 
-			if(args.size() == 0)
-				return;
-
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
+
+			if(args.size() == 0) {
+				std::cout << subIndent << LBRANCH << "<empty>\n";
+				return;
+			}
+
 			for(size_t i = 0; i < commas.size(); i++) {
 				std::cout << subIndent << VBRANCH << args[i].type.value << "    Typename " << args[i].type.span << "\n";
 				std::cout << subIndent << VBRANCH << args[i].name.value << "    Identifier " << args[i].name.span << "\n";
@@ -303,7 +306,7 @@ public:
 
 		inline virtual Span span() const { return Span(typeName.span, body->span()); }
 
-		inline virtual std::string toString(const size_t indent) const { return space(indent) + typeName.value + " " + functionName.value + openParen.value + args->toString(0) + closeParen.value + "\n" + body->toString(indent); }
+		inline virtual std::string toString(const size_t indent) const { return space(indent) + typeName.value + " " + functionName.value + openParen.value + args->toString(0) + closeParen.value + "\n" + body->toString(indent) + "\n"; }
 	};
 
 	// Program:
