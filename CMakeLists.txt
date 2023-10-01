@@ -4,7 +4,9 @@ project(Software_Rasterizer VERSION 0.1.0)
 include(CTest)
 enable_testing()
 
-add_compile_options(-O2 -Wall -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-missing-prototypes -Wno-unused-parameter -Wno-shadow-field-in-constructor -Wno-shadow) # -Wpedantic
+add_compile_options(-O2 -Wall -Wno-c++98-compat -Wno-c++98-compat-pedantic
+	-Wno-missing-prototypes -Wno-unused-parameter -Wno-shadow-field-in-constructor -Wno-shadow
+	-Wno-global-constructors -Wno-exit-time-destructors -Wno-switch)
 
 set(CMAKE_CXX_STANDARD 20)
 

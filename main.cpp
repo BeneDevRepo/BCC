@@ -12,29 +12,49 @@
 // 	return var_b;
 // }
 // )";
+// constexpr const char *const code = R"(
+// 	{
+// 		int a = 1 - 8 + 7 + 6 * 5 * 3;
+// 		int b = 1 + 2 * 3 - (a / 2.);
+// 		string d;
+// 		string e = "asdf";
+// 		int c = -(-(-(128)));
+// 	}
+// )";
 constexpr const char *const code = R"(
-	int a = 1 - 8 + 7 + 6 * 5 * 3;
+	string s = "asdf";
+	float s = (5-6-7) / 4.5;
+
+	void a(float f, int g){
+		int int0 = 1 + (2*3);
+
+		if(int0) {
+			int c = 7;
+			int g = c + 6;
+		}
+
+		while(f) {
+			int strg = 5 * 6;
+		}
+	}
+
+	void b() {
+	}
 )";
 
 void run() {
-	Lexer lexer;
+	Lexer lexer(code);
 
-	const auto tokens = lexer.tokenize(code);
+	std::cout << lexer << "\n";
 
-	for(const auto& token : tokens) {
-		std::cout << "" << token.value << " ";
-		// std::cout << "Token " << (int)token.type << " Value: " << token.value << " Span: " << token.start << " - " << token.len << "\n";
-	}
-	std::cout << "\n";
+	Parser parser(lexer);
 
-	Parser parser;
-
-	const Parser::Node* tree = parser.parse(tokens);
+	const Parser::Node* tree = parser.parse();
 
 	std::cout << "Tree:  " << tree << "\n";
 	tree->print();
 
-	(void)tree;
+	std::cout << "Reconstructed Source:\n" << tree->toString() << "\n";
 }
 
 int main() {

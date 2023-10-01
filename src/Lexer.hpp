@@ -11,34 +11,115 @@
 #include "Tokens.hpp"
 
 
-class Lexer {
+class Lexer : public TokenProvider {
+private:
+	std::vector<Token> stack; // contains pushed nextToken values
+	const std::string_view source;
+	Token nextToken;
+
 public:
-	inline std::vector<Token> tokenize(const std::string_view code) {
-		std::vector<Token> tokens;
+	inline Lexer(const std::string_view source): source(source), nextToken(getNextTokenNoSpace(0)) {}
 
-		for(size_t i = 0; i < code.size(); ) {
-			const std::string_view remaining = code.substr(i);
+	inline virtual ~Lexer() {
+		if(stack.size() > 0)
+			std::cout << "ERROR: Tried to destroy Lexer object with non-empty stack\n";
+	}
 
-			bool found = false;
+public:
+	inline virtual Token peek() const {
+		return nextToken;
+	}
 
-			for(const TokenDefinition& def : tokenDefinitions) {
-				std::match_results<std::string_view::const_iterator> res;
+	inline virtual Token consume() {
+		const Token res = nextToken;
 
-				if(std::regex_search(remaining.cbegin(), remaining.cend(), res, def.regex, std::regex_constants::match_continuous)) {
-					if(def.type != Token::Type::SPACE)
-						tokens.push_back(Token(def.type, res.str(1), i, (size_t)res.length()));
-					i += (size_t)res.length();
-					found = true;
-					break;
-				}
-			}
+		nextToken = getNextTokenNoSpace(nextToken.span.end());
 
-			if(!found)
-				throw std::runtime_error{"Invalid Syntax at index " + std::to_string(i)};
+		return res;
+	}
+
+	inline virtual void pushState() {
+		stack.push_back(nextToken);
+	}
+
+	inline virtual void popState() {
+		nextToken = stack.back();
+		stack.pop_back();
+	}
+
+	inline virtual void yeetState() {
+		stack.pop_back();
+	}
+
+private:
+	inline Token getNextToken(const size_t ind) const {
+		if(ind >= source.size() - 1)
+			return Token(Token::Type::END, "EOF");
+
+		std::string_view remainder = source.substr(ind); // unprocessed substring of source
+
+		for(const TokenDefinition& def : tokenDefinitions) {
+			std::match_results<std::string_view::const_iterator> res;
+
+			if(std::regex_search(remainder.cbegin(), remainder.cend(), res, def.regex, std::regex_constants::match_continuous))
+				return Token(def.type, res.str(1), ind + static_cast<size_t>(res.position(1)), static_cast<size_t>(res.length(1)));
 		}
 
-		tokens.push_back(Token(Token::Type::END, "EOF"));
+		throw std::runtime_error{"Invalid Syntax at index " + std::to_string(ind)};
+	}
 
-		return tokens;
+	inline Token getNextTokenNoSpace(size_t ind) const {
+		Token t;
+
+		do {
+			t = getNextToken(ind);
+			ind = t.span.end();
+		} while(t.type == Token::Type::SPACE);
+
+		return t;
+	}
+};
+
+
+class ImmediateLexer : public TokenProvider {
+private:
+	std::vector<size_t> stack; // contains pushed values of ind
+	std::vector<Token> tokens;
+	size_t ind;
+
+public:
+	inline ImmediateLexer(const std::string_view source): tokens(), ind(0) {
+		Lexer lex(source);
+
+		do {
+			tokens.push_back(lex.consume());
+		} while(tokens.back().type != Token::Type::END);
+	}
+
+	inline virtual ~ImmediateLexer() {
+		if(stack.size() > 0)
+			std::cout << "ERROR: Tried to destroy ImmediateLexer object with non-empty stack\n";
+	}
+
+public:
+	inline virtual Token peek() const {
+		return tokens[std::min<size_t>(tokens.size()-1, ind)];
+	}
+
+	inline virtual Token consume() {
+		return tokens[std::min<size_t>(tokens.size()-1, ind++)];
+	}
+
+	inline virtual void pushState() {
+		stack.push_back(ind);
+	}
+
+	inline virtual void popState() {
+		ind = stack.back();
+		stack.pop_back();
+	}
+
+	inline virtual void yeetState() {
+		stack.pop_back();
 	}
 };
