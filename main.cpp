@@ -35,6 +35,7 @@ constexpr const char *const code = R"(
 
 		while(f) {
 			int strg = 5 * -6;
+			4 + 6 - 3;
 		}
 	}
 

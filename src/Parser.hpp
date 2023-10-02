@@ -145,6 +145,31 @@ public:
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + typeName.value + " " + varName->toString(0) + " " + equals.value + " " + expr->toString(0) + semicolon.value; }
 	};
 
+	struct ExpressionStatement : public StatementNode {
+		ExpressionNode* expr;
+		Token semicolon;
+
+		inline ExpressionStatement(ExpressionNode* expr, const Token& semicolon): expr(expr), semicolon(semicolon) {}
+
+		inline virtual void print(const std::string& indent, const bool isLast) const {
+			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+
+			std::cout << RBRANCH << "    ExpressionStatement " << span() << "\n";
+
+			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
+
+			expr->print(subIndent, false);
+
+			std::cout << subIndent << LBRANCH << semicolon.value << "    Semicolon " << semicolon.span << "\n";
+		}
+
+		inline virtual Span span() const { return Span(expr->span(), semicolon.span); }
+
+		inline virtual std::string toString(const size_t indent) const {
+			return expr->toString(indent) + semicolon.value;
+		}
+	};
+
 	struct BlockStatement : public StatementNode {
 		Token openBrace;
 		std::vector<StatementNode*> statements;
@@ -392,7 +417,31 @@ public:
 		if(FunctionDeclarationStatement* function = functionDeclaration())
 			return function;
 
+		if(ExpressionStatement* expStmt = expressionStatement())
+			return expStmt;
+
 		return nullptr;
+	}
+
+	inline ExpressionStatement* expressionStatement() {
+		tokenProvider.pushState();
+		
+		ExpressionNode* expr = expression();
+
+		if(!expr) {
+			tokenProvider.popState();
+			return nullptr;
+		}
+		
+		if(peekToken().type != Token::Type::SEMICOLON) {
+			tokenProvider.popState();
+			return nullptr;
+		}
+
+		const Token& semicolon = getToken(); // consume ';'
+
+		tokenProvider.yeetState();
+		return new ExpressionStatement(expr, semicolon);
 	}
 
 	inline BlockStatement* blockStatement() {
