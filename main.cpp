@@ -5,42 +5,30 @@
 
 
 // constexpr const char *const code = R"(
-// int main() {
-// 	int var_a = 0;
-// 	float var_b = a + 5.;
-// 	string str = "asdf";
-// 	return var_b;
-// }
-// )";
-// constexpr const char *const code = R"(
-// 	{
-// 		int a = 1 - 8 + 7 + 6 * 5 * 3;
-// 		int b = 1 + 2 * 3 - (a / 2.);
-// 		string d;
-// 		string e = "asdf";
-// 		int c = -(-(-(128)));
+// 	string s1 = "asdf";
+// 	float s = (5-6-7) / 4.5;
+
+// 	void a(float f, int g){
+// 		int int0 = 1 + (2*3);
+
+// 		if(int0) {
+// 			int c = 7;
+// 			int g = c + 6;
+// 		}
+
+// 		while(f) {
+// 			int strg = 5 * -6;
+// 			4 + 6 - 3;
+// 		}
+// 	}
+
+// 	void b() {
 // 	}
 // )";
+
 constexpr const char *const code = R"(
-	string s = "asdf";
-	float s = (5-6-7) / 4.5;
-
-	void a(float f, int g){
-		int int0 = 1 + (2*3);
-
-		if(int0) {
-			int c = 7;
-			int g = c + 6;
-		}
-
-		while(f) {
-			int strg = 5 * -6;
-			4 + 6 - 3;
-		}
-	}
-
-	void b() {
-	}
+	float f(float x) { return x * x; }
+	float b = f(0);
 )";
 
 void run() {

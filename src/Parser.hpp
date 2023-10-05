@@ -37,6 +37,41 @@ public:
 	// expressions:
 	struct ExpressionNode : public Node { };
 
+	struct FunctionCallExpressionNode : public ExpressionNode {
+		Token name; // function name
+		Token openParen;
+		std::vector<ExpressionNode*> args; // function call arguments
+		std::vector<Token> commas; // commas between function call arguments
+		Token closeParen;
+
+		inline FunctionCallExpressionNode(const Token& name, const Token& openParen, const std::vector<ExpressionNode*>& args, const std::vector<Token>& commas, const Token& closeParen):
+			name(name), openParen(openParen), args(args), commas(commas), closeParen(closeParen) {}
+
+		inline virtual void print(const std::string& indent, const bool isLast) const {
+			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+			std::cout << "    FunctionCall " << span() << "\n";
+
+			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
+			std::cout << subIndent << VBRANCH << name.value << "    Identifier " << name.span << "\n";
+			std::cout << subIndent << VBRANCH << openParen.value << "    OpenParen " << openParen.span << "\n";
+			for(const ExpressionNode* arg : args)
+				arg->print(subIndent, false);
+			std::cout << subIndent << LBRANCH << closeParen.value << "    CloseParen " << closeParen.span << "\n";
+		}
+
+		inline virtual Span span() const { return Span(name.span, closeParen.span); }
+
+		inline virtual std::string toString(const size_t indent) const {
+			std::string res = space(indent) + name.value + openParen.value;
+			for(size_t i = 0; i < commas.size(); i++)
+				res += args[i]->toString(0) + commas[i].value + " ";
+			if(args.size() > 0)
+				res += args.back()->toString(0);
+			res += closeParen.value;
+			return res;
+		}
+	};
+
 	struct UnaryExpressionNode : public ExpressionNode {
 		Token op; // operation
 		ExpressionNode *a;
@@ -142,7 +177,7 @@ public:
 
 		inline virtual Span span() const { return Span(typeName.span, semicolon.span); }
 
-		inline virtual std::string toString(const size_t indent) const { return space(indent) + typeName.value + " " + varName->toString(0) + " " + equals.value + " " + expr->toString(0) + semicolon.value; }
+		inline virtual std::string toString(const size_t indent) const { return space(indent) + typeName.value + " " + varName->toString(0) + (expr ? (" " + equals.value + " " + expr->toString(0)) : "") + semicolon.value; }
 	};
 
 	struct ExpressionStatement : public StatementNode {
@@ -268,7 +303,7 @@ public:
 
 		inline ArgumentsNode(const std::vector<Argument>& args, const std::vector<Token>& commas): args(args), commas(commas) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const { // TODO
+		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
 			std::cout << RBRANCH << "    ArgumentList " << span() << "\n";
 
@@ -306,7 +341,7 @@ public:
 
 	struct FunctionDeclarationStatement : public StatementNode {
 		Token typeName;
-		Token functionName; // TODO: fix
+		Token functionName;
 		Token openParen;
 		ArgumentsNode* args;
 		Token closeParen;
@@ -476,7 +511,7 @@ public:
 		
 		const Token& type = getToken(); // consume typename
 
-		IdentifierNode* name = variable();
+		IdentifierNode* name = identifier();
 
 		if(!name) {
 			tokenProvider.popState();
@@ -491,7 +526,6 @@ public:
 		
 
 		if(peekToken().type != Token::Type::EQUAL) {
-			throw std::runtime_error("Failed to parse Variable Declaration!");
 			tokenProvider.popState();
 			return nullptr;
 		}
@@ -501,13 +535,13 @@ public:
 		ExpressionNode* expr = expression();
 
 		if(!expr) {
-			throw std::runtime_error("Failed to parse Variable Declaration!");
+			throw std::runtime_error("Failed to parse Variable Declaration!1");
 			tokenProvider.popState();
 			return nullptr;
 		}
 
 		if(peekToken().type != Token::Type::SEMICOLON) {
-			throw std::runtime_error("Failed to parse Variable Declaration!");
+			throw std::runtime_error("Failed to parse Variable Declaration!2");
 			tokenProvider.popState();
 			return nullptr;
 		}
@@ -738,11 +772,15 @@ public:
 		}
 
 		// literal:
-		if(ExpressionNode* n = literal())
+		if(LiteralNode* n = literal())
 			return n;
+
+		// function call:
+		if(FunctionCallExpressionNode* f = functionCall())
+			return f;
 		
 		// variable name:
-		if(ExpressionNode* v = variable())
+		if(IdentifierNode* v = identifier())
 			return v;
 		
 		// negation:
@@ -754,7 +792,52 @@ public:
 		return nullptr;
 	}
 
-	inline IdentifierNode* variable() {
+	inline FunctionCallExpressionNode* functionCall() {
+		// static constexpr auto isTypename = [](const Token& token) { const Token::Type type = token.type; return type == Token::Type::BOOL || type == Token::Type::INT || type == Token::Type::FLOAT || type == Token::Type::STRING; };
+
+		tokenProvider.pushState();
+
+		if(peekToken().type != Token::Type::IDENTIFIER) {
+			tokenProvider.popState();
+			return nullptr;
+		}
+		const Token& name = getToken(); // consume function name
+
+		if(peekToken().type != Token::Type::PAREN_OPEN) {
+			tokenProvider.popState();
+			return nullptr;
+		}
+		const Token& openParen = getToken(); // consume '('
+
+		std::vector<ExpressionNode*> args;
+		std::vector<Token> commas;
+
+		ExpressionNode* expr = expression();
+		if(expr) {
+			args.push_back(expr); // consume first argument
+			
+			for(;peekToken().type == Token::Type::COMMA;) {
+				commas.push_back(getToken()); // consume ','
+
+				ExpressionNode* expr = expression();
+				if(!expr)
+					throw std::runtime_error("Error parsing function call: no expression after comma");
+				
+				args.push_back(expr); // consume argument
+			}
+		}
+
+		if(peekToken().type != Token::Type::PAREN_CLOSE) {
+			tokenProvider.popState();
+			return nullptr;
+		}
+		const Token& closeParen = getToken(); // consume ')'
+
+		tokenProvider.yeetState();
+		return new FunctionCallExpressionNode(name, openParen, args, commas, closeParen);
+	}
+
+	inline IdentifierNode* identifier() {
 		if(peekToken().type == Token::Type::IDENTIFIER)
 			return new IdentifierNode(getToken());
 			
@@ -762,7 +845,7 @@ public:
 	}
 
 
-	inline ExpressionNode* literal() {
+	inline LiteralNode* literal() {
 		constexpr static auto isLiteralType = [](const Token::Type type) {
 			switch(type) {
 				case Token::Type::BOOL_LITERAL:
