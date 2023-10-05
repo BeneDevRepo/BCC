@@ -49,7 +49,7 @@ public:
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
-			std::cout << "    FunctionCall " << span() << "\n";
+			std::cout << RBRANCH << "    FunctionCall " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
 			std::cout << subIndent << VBRANCH << name.value << "    Identifier " << name.span << "\n";
@@ -238,6 +238,30 @@ public:
 
 			return res;
 		}
+	};
+
+	struct ReturnStatement : public StatementNode {
+		Token returnToken;
+		ExpressionNode* expr;
+		Token semicolon;
+
+		inline ReturnStatement(const Token& returnToken, ExpressionNode* expr, const Token& semicolon):
+			returnToken(returnToken), expr(expr), semicolon(semicolon) {}
+
+		inline virtual void print(const std::string& indent, const bool isLast) const {
+			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+
+			std::cout << RBRANCH << "    IfStatement " << span() << "\n";
+
+			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
+			std::cout << subIndent << VBRANCH << returnToken.value << "    ReturnKeyword " << returnToken.span << "\n";
+			expr->print(subIndent, false);
+			std::cout << subIndent << LBRANCH << semicolon.value << "    semicolon " << semicolon.span << "\n";
+		}
+
+		inline virtual Span span() const { return Span(returnToken.span, semicolon.span); }
+
+		inline virtual std::string toString(const size_t indent) const { return space(indent) + returnToken.value + " " + expr->toString(0) + semicolon.value; }
 	};
 
 	struct IfStatement : public StatementNode {
@@ -440,6 +464,9 @@ public:
 		if(BlockStatement* block = blockStatement())
 			return block;
 
+		if(ReturnStatement* ret = returnStatement())
+			return ret;
+
 		if(VariableDeclarationStatement* varDecl = variableDeclaration())
 			return varDecl;
 
@@ -496,6 +523,21 @@ public:
 		const Token& closeBrace = getToken(); // consume '}'
 
 		return new BlockStatement(openBrace, statements, closeBrace);
+	}
+
+	inline ReturnStatement* returnStatement() {
+		if(peekToken().type != Token::Type::RETURN)
+			return nullptr;
+		
+		const Token& returnToken = getToken(); // consume 'return'
+		
+		ExpressionNode* expr = expression();
+		if(!expr || peekToken().type != Token::Type::SEMICOLON)
+			throw std::runtime_error("Error parsing return value expression");
+		
+		const Token& semicolon = getToken();
+		
+		return new ReturnStatement(returnToken, expr, semicolon);
 	}
 
 	inline VariableDeclarationStatement* variableDeclaration() {
@@ -779,9 +821,9 @@ public:
 		if(FunctionCallExpressionNode* f = functionCall())
 			return f;
 		
-		// variable name:
-		if(IdentifierNode* v = identifier())
-			return v;
+		// identifier (variable name):
+		if(IdentifierNode* i = identifier())
+			return i;
 		
 		// negation:
 		if(peekToken().type == Token::Type::MINUS) {
