@@ -72,6 +72,28 @@ public:
 		}
 	};
 
+	struct GroupExpressionNode : public ExpressionNode {
+		Token openParen, closeParen; // operation
+		ExpressionNode *a;
+
+		inline GroupExpressionNode(const Token& openParen, ExpressionNode* a, const Token& closeParen): openParen(openParen), a(a), closeParen(closeParen) {}
+
+		inline virtual void print(const std::string& indent, const bool isLast) const {
+			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+			std::cout << RBRANCH;
+			std::cout << "    GroupExpression " << span() << "\n";
+
+			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
+			std::cout << subIndent << VBRANCH << openParen.value << "\n";
+			a->print(subIndent, false);
+			std::cout << subIndent << LBRANCH << closeParen.value << "\n";
+		}
+
+		inline virtual Span span() const { return Span(openParen.span, closeParen.span); }
+
+		inline virtual std::string toString(const size_t indent) const { return space(indent) + openParen.value + a->toString(0) + closeParen.value; }
+	};
+
 	struct UnaryExpressionNode : public ExpressionNode {
 		Token op; // operation
 		ExpressionNode *a;
@@ -805,12 +827,14 @@ public:
 	inline ExpressionNode* primaryExpression() {
 		// group:
 		if(peekToken().type == Token::Type::PAREN_OPEN) {
-			getToken(); // consume '('
+			const Token& openParen = getToken(); // consume '('
 			ExpressionNode *expr = expression();
+			if(!expr)
+				throw std::runtime_error("No Expression inside parentheses");
 			if(peekToken().type != Token::Type::PAREN_CLOSE)
 				throw std::runtime_error("Missing closing Parenthesis at the end of primary expression");
-			getToken(); // consume ')'
-			return expr;
+			const Token& closeParen = getToken(); // consume ')'
+			return new GroupExpressionNode(openParen, expr, closeParen);
 		}
 
 		// literal:

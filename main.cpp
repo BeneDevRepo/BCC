@@ -7,7 +7,7 @@
 
 constexpr const char *const code = R"(
 	float f(float x) {
-		return x * x;
+		return (x + 1) * x;
 	}
 
 	float b = f(0);
