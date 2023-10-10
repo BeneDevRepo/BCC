@@ -138,6 +138,10 @@ namespace ParseTree {
 		inline virtual Span span() const { return Span(a->span(), b->span()); }
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + a->toString(0) + " " + op.value + " " + b->toString(0); }
+
+		// inline virtual AST::BinaryExpressionNode* ast() const {
+		// 	return new AST::BinaryExpressionNode(a->ast(), op.value, b->ast()); // TODO: implement
+		// }
 	};
 
 	struct IdentifierNode : public ExpressionNode {
