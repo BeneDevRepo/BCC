@@ -31,7 +31,7 @@ namespace AST {
 		// inline Node(const Span& span_): span_(span_) {}
 		inline virtual ~Node() {}
 		inline virtual void print(const std::string& indent = "", const bool isLast = true) const = 0;
-		inline Span span() const { return span_; };
+		inline Span span() const { return span_; }
 	};
 
 
