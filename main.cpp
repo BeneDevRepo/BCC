@@ -14,7 +14,7 @@
 // 	float b = f(0);
 // )";
 constexpr const char *const code = R"(
-	1 + 2
+	(1 + 2) * 7 / F(x)
 )";
 
 void run() {
@@ -24,12 +24,12 @@ void run() {
 
 	Parser parser(lexer);
 
-	const ParseTree::LiteralNode* tree = parser.parse();
+	const ParseTree::ExpressionNode* tree = parser.parse();
 
 	std::cout << "ParseTree:  " << tree << "\n";
 	tree->print("", true);
 
-	std::cout << "\nReconstructed Source:\n" << tree->toString(0) << "\n";
+	std::cout << "\nReconstructed Source:\n" << tree->toString(0) << "\n\n";
 
 	const AST::Node* ast = tree->ast();
 

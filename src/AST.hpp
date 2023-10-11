@@ -42,34 +42,29 @@ namespace AST {
 
 	// expressions:
 
-	// struct FunctionCallExpressionNode : public ExpressionNode {
-	// 	Token name; // function name
-	// 	Token openParen;
-	// 	std::vector<ExpressionNode*> args; // function call arguments
-	// 	std::vector<Token> commas; // commas between function call arguments
-	// 	Token closeParen;
+	struct FunctionCallExpressionNode : public ExpressionNode {
+		std::string name; // function name
+		std::vector<ExpressionNode*> args; // function call arguments
 
-	// 	inline FunctionCallExpressionNode(const Token& name, const Token& openParen, const std::vector<ExpressionNode*>& args, const std::vector<Token>& commas, const Token& closeParen):
-	// 		name(name), openParen(openParen), args(args), commas(commas), closeParen(closeParen) {}
+		inline FunctionCallExpressionNode(const std::string& name, const std::vector<ExpressionNode*>& args):
+			name(name), args(args) {}
 
-	// 	inline virtual void print(const std::string& indent, const bool isLast) const {
-	// 		std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
-	// 		std::cout << RBRANCH << "    FunctionCall " << span() << "\n";
+		inline virtual void print(const std::string& indent, const bool isLast) const {
+			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+			std::cout << RBRANCH << "    FunctionCall " << span() << "\n";
 
-	// 		const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-	// 		std::cout << subIndent << VBRANCH << name.value << "    Identifier " << name.span << "\n";
-	// 		std::cout << subIndent << VBRANCH << openParen.value << "    OpenParen " << openParen.span << "\n";
-	// 		for(const ExpressionNode* arg : args)
-	// 			arg->print(subIndent, false);
-	// 		std::cout << subIndent << LBRANCH << closeParen.value << "    CloseParen " << closeParen.span << "\n";
-	// 	}
-	// };
+			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
+			std::cout << subIndent << VBRANCH << name << "    Identifier " << "\n";
+			for(const ExpressionNode* arg : args)
+				arg->print(subIndent, arg == args.back());
+		}
+	};
 
 	struct UnaryExpressionNode : public ExpressionNode {
 		char op; // operation
 		ExpressionNode *a;
 
-		inline UnaryExpressionNode(ExpressionNode* a, const char op): op(op), a(a) {}
+		inline UnaryExpressionNode(const char op, ExpressionNode* a): op(op), a(a) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
@@ -83,13 +78,13 @@ namespace AST {
 
 	struct BinaryExpressionNode : public ExpressionNode {
 		ExpressionNode *a, *b;
-		Token op; // operation
+		char op; // operation
 
-		inline BinaryExpressionNode(ExpressionNode* a, ExpressionNode* b, const Token& op): a(a), b(b), op(op) {}
+		inline BinaryExpressionNode(ExpressionNode* a, const char op, ExpressionNode* b): a(a), op(op), b(b) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
-			std::cout << op.value;
+			std::cout << op;
 			std::cout << "    BinaryExpression " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
@@ -99,12 +94,12 @@ namespace AST {
 	};
 
 	struct IdentifierNode : public ExpressionNode {
-		Token name;
+		std::string name;
 
-		inline IdentifierNode(const Token& name): name(name) {}
+		inline IdentifierNode(const std::string& name): name(name) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH) << "<" << name.value << ">";
+			std::cout << indent << (isLast ? LBRANCH : VBRANCH) << "<" << name << ">";
 			std::cout << "    Identifier " << span() << "\n";
 		}
 	};

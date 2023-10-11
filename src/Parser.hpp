@@ -130,12 +130,12 @@ public:
 		
 		const Token& type = getToken(); // consume typename
 
-		ParseTree::IdentifierNode* name = identifier();
-
-		if(!name) {
+		// ParseTree::IdentifierNode* name = identifier();
+		if(peekToken().type != Token::Type::IDENTIFIER) {
 			tokenProvider.popState();
 			return nullptr;
 		}
+		const Token& name = getToken();
 
 		if(peekToken().type == Token::Type::SEMICOLON) {
 			const Token& semicolon = getToken(); // consume ';'
@@ -359,7 +359,7 @@ public:
 		while(isSumType(peekToken().type)) {
 			const Token& op = getToken(); // consume operation token
 			ParseTree::ExpressionNode* b = multiplicativeExpression();
-			a = new ParseTree::BinaryExpressionNode(a, b, op);
+			a = new ParseTree::BinaryExpressionNode(a, op, b);
 		}
 
 		return a;
@@ -373,7 +373,7 @@ public:
 		while(isMulType(peekToken().type)) {
 			const Token& op = getToken(); // consume operation token
 			ParseTree::ExpressionNode* b = primaryExpression();
-			a = new ParseTree::BinaryExpressionNode(a, b, op);
+			a = new ParseTree::BinaryExpressionNode(a, op, b);
 		}
 
 		return a;
@@ -407,7 +407,7 @@ public:
 		// negation:
 		if(peekToken().type == Token::Type::MINUS) {
 			const Token& op = getToken(); // consume '-'
-			return new ParseTree::UnaryExpressionNode(primaryExpression(), op);
+			return new ParseTree::UnaryExpressionNode(op, primaryExpression());
 		}
 
 		return nullptr;
@@ -484,8 +484,8 @@ public:
 		return nullptr;
 	}
 
-	inline ParseTree::LiteralNode* parse() {
-		ParseTree::LiteralNode* tree = literal();
+	inline ParseTree::ExpressionNode* parse() {
+		ParseTree::ExpressionNode* tree = expression();
 
 		return tree;
 	}
