@@ -37,7 +37,9 @@ namespace ParseTree {
 		inline virtual AST::ExpressionNode* ast() const = 0;
 	};
 
-	struct StatementNode : public Node { };
+	struct StatementNode : public Node {
+		inline virtual AST::StatementNode* ast() const = 0;
+	};
 
 
 	// expressions:
@@ -212,10 +214,6 @@ namespace ParseTree {
 		ExpressionNode *expr;
 		Token semicolon;
 
-		// inline VariableDeclarationStatement(const Token& typeName, IdentifierNode* varName, const Token& semicolon):
-		// 	typeName(typeName), varName(varName), equals(), expr(nullptr), semicolon(semicolon) {}
-		// inline VariableDeclarationStatement(const Token& typeName, IdentifierNode* varName, const Token& equals, ExpressionNode* expr, const Token& semicolon):
-		// 	typeName(typeName), varName(varName), equals(equals), expr(expr), semicolon(semicolon) {}
 		inline VariableDeclarationStatement(const Token& typeName, const Token& varName, const Token& semicolon):
 			typeName(typeName), varName(varName), equals(), expr(nullptr), semicolon(semicolon) {}
 		inline VariableDeclarationStatement(const Token& typeName, const Token& varName, const Token& equals, ExpressionNode* expr, const Token& semicolon):
@@ -227,7 +225,7 @@ namespace ParseTree {
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
 			std::cout << subIndent << VBRANCH << typeName.value << "    Typename " << typeName.span << "\n";
-			// varName->print(subIndent, false);
+
 			std::cout << subIndent << VBRANCH << varName.value << "    Identifier " << varName.span << "\n";
 
 			if(expr) {
@@ -242,6 +240,16 @@ namespace ParseTree {
 
 		// inline virtual std::string toString(const size_t indent) const { return space(indent) + typeName.value + " " + varName->toString(0) + (expr ? (" " + equals.value + " " + expr->toString(0)) : "") + semicolon.value; }
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + typeName.value + " " + varName.value + (expr ? (" " + equals.value + " " + expr->toString(0)) : "") + semicolon.value; }
+
+		inline virtual AST::StatementNode* ast() const {
+			std::vector<AST::StatementNode*> statements;
+			statements.push_back(new AST::VariableDeclarationStatement(typeName.value, varName.value));
+		
+			if(expr)
+				statements.push_back(new AST::VariableAssignmentStatement(varName.value, expr->ast()));
+
+			return new AST::StatementList(statements);
+		}
 	};
 
 	struct ExpressionStatement : public StatementNode {
@@ -266,6 +274,10 @@ namespace ParseTree {
 
 		inline virtual std::string toString(const size_t indent) const {
 			return expr->toString(indent) + semicolon.value;
+		}
+
+		inline virtual AST::StatementNode* ast() const {
+			return new AST::ExpressionStatement(expr->ast());
 		}
 	};
 
@@ -302,6 +314,15 @@ namespace ParseTree {
 
 			return res;
 		}
+
+		inline virtual AST::StatementNode* ast() const {
+			std::vector<AST::StatementNode*> astStatements;
+
+			for(const StatementNode* statement : statements)
+				astStatements.push_back(statement->ast());
+
+			return new AST::StatementList(astStatements);
+		}
 	};
 
 	struct ReturnStatement : public StatementNode {
@@ -326,6 +347,10 @@ namespace ParseTree {
 		inline virtual Span span() const { return Span(returnToken.span, semicolon.span); }
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + returnToken.value + " " + expr->toString(0) + semicolon.value; }
+
+		inline virtual AST::StatementNode* ast() const {
+			return new AST::ReturnStatement(expr->ast());
+		}
 	};
 
 	struct IfStatement : public StatementNode {
@@ -354,6 +379,10 @@ namespace ParseTree {
 		inline virtual Span span() const { return Span(ifToken.span, body->span()); }
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + ifToken.value + openParen.value + condition->toString(0) + closeParen.value + "\n" + body->toString(indent); }
+
+		inline virtual AST::StatementNode* ast() const {
+			return new AST::IfStatement(condition->ast(), body->ast());
+		}
 	};
 
 	struct WhileStatement : public StatementNode {
@@ -382,6 +411,10 @@ namespace ParseTree {
 		inline virtual Span span() const { return Span(whileToken.span, body->span()); }
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + whileToken.value + openParen.value + condition->toString(0) + closeParen.value + "\n" + body->toString(indent); }
+
+		inline virtual AST::StatementNode* ast() const {
+			return new AST::WhileStatement(condition->ast(), body->ast());
+		}
 	};
 
 	struct ArgumentsNode : public Node {
@@ -455,6 +488,17 @@ namespace ParseTree {
 		inline virtual Span span() const { return Span(typeName.span, body->span()); }
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + typeName.value + " " + functionName.value + openParen.value + args->toString(0) + closeParen.value + "\n" + body->toString(indent) + "\n"; }
+
+		inline virtual AST::StatementNode* ast() const {
+			std::vector<AST::ArgumentsNode::Argument> astArgsVec;
+
+			for(const auto& arg : args->args)
+				astArgsVec.emplace_back(AST::ArgumentsNode::Argument{ arg.type.value, arg.name.value });
+			
+			AST::ArgumentsNode* astArgs = new AST::ArgumentsNode(astArgsVec);
+
+			return new AST::FunctionDeclarationStatement(typeName.value, functionName.value, astArgs, body->ast());
+		}
 	};
 
 	// Program:
@@ -483,6 +527,15 @@ namespace ParseTree {
 				res += s->toString(indent) + "\n";
 
 			return res;
+		}
+
+		inline AST::StatementList* ast() const {
+			std::vector<AST::StatementNode*> astStatements;
+
+			for(const StatementNode* statement : statements)
+				astStatements.push_back(statement->ast());
+			
+			return new AST::StatementList(astStatements);
 		}
 	};
 };

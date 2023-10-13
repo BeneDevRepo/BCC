@@ -77,8 +77,9 @@ namespace AST {
 	};
 
 	struct BinaryExpressionNode : public ExpressionNode {
-		ExpressionNode *a, *b;
+		ExpressionNode *a;
 		char op; // operation
+		ExpressionNode *b;
 
 		inline BinaryExpressionNode(ExpressionNode* a, const char op, ExpressionNode* b): a(a), op(op), b(b) {}
 
@@ -158,39 +159,44 @@ namespace AST {
 
 	// Statements:
 	struct VariableDeclarationStatement : public StatementNode {
-		Token typeName;
-		IdentifierNode *varName;
-		Token equals;
-		ExpressionNode *expr;
-		Token semicolon;
+		std::string typeName;
+		std::string varName;
 
-		inline VariableDeclarationStatement(const Token& typeName, IdentifierNode* varName, const Token& semicolon):
-			typeName(typeName), varName(varName), equals(), expr(nullptr), semicolon(semicolon) {}
-		inline VariableDeclarationStatement(const Token& typeName, IdentifierNode* varName, const Token& equals, ExpressionNode* expr, const Token& semicolon):
-			typeName(typeName), varName(varName), equals(equals), expr(expr), semicolon(semicolon) {}
+		inline VariableDeclarationStatement(const std::string& typeName, const std::string& varName):
+			typeName(typeName), varName(varName) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
 			std::cout << RBRANCH << "    Declaration " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			std::cout << subIndent << VBRANCH << typeName.value << "    Typename " << typeName.span << "\n";
-			varName->print(subIndent, false);
+			std::cout << subIndent << VBRANCH << typeName << "    Typename " << "\n";
+			std::cout << subIndent << LBRANCH << varName << "    Identifier " << "\n";
+		}
+	};
 
-			if(expr) {
-				std::cout << subIndent << VBRANCH << equals.value << "    Operator " << equals.span << "\n";
-				expr->print(subIndent, false);
-			}
+	struct VariableAssignmentStatement : public StatementNode {
+		std::string varName;
+		ExpressionNode *expr;
 
-			std::cout << subIndent << LBRANCH << semicolon.value << "    Semicolon " << span() << "\n";
+		inline VariableAssignmentStatement(const std::string& varName, ExpressionNode* expr):
+			varName(varName), expr(expr) {}
+
+		inline virtual void print(const std::string& indent, const bool isLast) const {
+			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+			std::cout << RBRANCH << "    Assignment " << span() << "\n";
+
+			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
+			std::cout << subIndent << VBRANCH << varName << "    Identifier " << "\n";
+
+			expr->print(subIndent, true);
 		}
 	};
 
 	struct ExpressionStatement : public StatementNode {
 		ExpressionNode* expr;
-		Token semicolon;
 
-		inline ExpressionStatement(ExpressionNode* expr, const Token& semicolon): expr(expr), semicolon(semicolon) {}
+		inline ExpressionStatement(ExpressionNode* expr): expr(expr) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
@@ -199,18 +205,14 @@ namespace AST {
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
 
-			expr->print(subIndent, false);
-
-			std::cout << subIndent << LBRANCH << semicolon.value << "    Semicolon " << semicolon.span << "\n";
+			expr->print(subIndent, true);
 		}
 	};
 
-	struct BlockStatement : public StatementNode {
-		Token openBrace;
+	struct StatementList : public StatementNode {
 		std::vector<StatementNode*> statements;
-		Token closeBrace;
 
-		inline BlockStatement(const Token& openBrace, const std::vector<StatementNode*>& statements, const Token& closeBrace): openBrace(openBrace), statements(statements), closeBrace(closeBrace) {}
+		inline StatementList(const std::vector<StatementNode*>& statements): statements(statements) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
@@ -218,44 +220,34 @@ namespace AST {
 			std::cout << RBRANCH << "    Block " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			std::cout << subIndent << VBRANCH << openBrace.value << "    OpenBrace " << openBrace.span << "\n";
 
 			for(StatementNode* statement : statements)
-				statement->print(subIndent, false);
-
-			std::cout << subIndent << LBRANCH << closeBrace.value << "    CloseBrace " << closeBrace.span << "\n";
+				statement->print(subIndent, statement == statements.back());
 		}
 	};
 
 	struct ReturnStatement : public StatementNode {
-		Token returnToken;
 		ExpressionNode* expr;
-		Token semicolon;
 
-		inline ReturnStatement(const Token& returnToken, ExpressionNode* expr, const Token& semicolon):
-			returnToken(returnToken), expr(expr), semicolon(semicolon) {}
+		inline ReturnStatement(ExpressionNode* expr): expr(expr) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
 
-			std::cout << RBRANCH << "    IfStatement " << span() << "\n";
+			std::cout << RBRANCH << "    ReturnStatement " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			std::cout << subIndent << VBRANCH << returnToken.value << "    ReturnKeyword " << returnToken.span << "\n";
-			expr->print(subIndent, false);
-			std::cout << subIndent << LBRANCH << semicolon.value << "    semicolon " << semicolon.span << "\n";
+			
+			expr->print(subIndent, true);
 		}
 	};
 
 	struct IfStatement : public StatementNode {
-		Token ifToken;
-		Token openParen;
 		ExpressionNode* condition;
-		Token closeParen;
 		StatementNode* body;
 
-		inline IfStatement(const Token& ifToken, const Token& openParen, ExpressionNode* condition, const Token& closeParen, StatementNode* body):
-			ifToken(ifToken), openParen(openParen), condition(condition), closeParen(closeParen), body(body) {}
+		inline IfStatement(ExpressionNode* condition, StatementNode* body):
+			condition(condition), body(body) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
@@ -263,23 +255,17 @@ namespace AST {
 			std::cout << RBRANCH << "    IfStatement " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			std::cout << subIndent << VBRANCH << ifToken.value << "    IfKeyword " << ifToken.span << "\n";
-			std::cout << subIndent << VBRANCH << openParen.value << "    OpenParen " << openParen.span << "\n";
 			condition->print(subIndent, false);
-			std::cout << subIndent << VBRANCH << closeParen.value << "    CloseParen " << closeParen.span << "\n";
 			body->print(subIndent, true);
 		}
 	};
 
 	struct WhileStatement : public StatementNode {
-		Token whileToken;
-		Token openParen;
 		ExpressionNode* condition;
-		Token closeParen;
 		StatementNode* body;
 
-		inline WhileStatement(const Token& whileToken, const Token& openParen, ExpressionNode* condition, const Token& closeParen, StatementNode* body):
-			whileToken(whileToken), openParen(openParen), condition(condition), closeParen(closeParen), body(body) {}
+		inline WhileStatement(ExpressionNode* condition, StatementNode* body):
+			condition(condition), body(body) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
@@ -287,20 +273,16 @@ namespace AST {
 			std::cout << RBRANCH << "    WhileStatement " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			std::cout << subIndent << VBRANCH << whileToken.value << "    WhileKeyword " << whileToken.span << "\n";
-			std::cout << subIndent << VBRANCH << openParen.value << "    OpenParen " << openParen.span << "\n";
 			condition->print(subIndent, false);
-			std::cout << subIndent << VBRANCH << closeParen.value << "    CloseParen " << closeParen.span << "\n";
 			body->print(subIndent, true);
 		}
 	};
 
 	struct ArgumentsNode : public ExpressionNode {
-		struct Argument { Token type, name; };
+		struct Argument { std::string type, name; };
 		std::vector<Argument> args;
-		std::vector<Token> commas;
 
-		inline ArgumentsNode(const std::vector<Argument>& args, const std::vector<Token>& commas): args(args), commas(commas) {}
+		inline ArgumentsNode(const std::vector<Argument>& args): args(args) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
@@ -313,27 +295,21 @@ namespace AST {
 				return;
 			}
 
-			for(size_t i = 0; i < commas.size(); i++) {
-				std::cout << subIndent << VBRANCH << args[i].type.value << "    Typename " << args[i].type.span << "\n";
-				std::cout << subIndent << VBRANCH << args[i].name.value << "    Identifier " << args[i].name.span << "\n";
-				std::cout << subIndent << VBRANCH << commas[i].value << "    Comma " << commas[i].span << "\n";
+			for(size_t i = 0; i < args.size(); i++) {
+				std::cout << subIndent << VBRANCH << args[i].type << "    Typename " << "\n";
+				std::cout << subIndent << (i==args.size()-1 ? LBRANCH : VBRANCH) << args[i].name << "    Identifier " << "\n";
 			}
-
-			std::cout << subIndent << VBRANCH << args.back().type.value << "    Typename " << args.back().type.span << "\n";
-			std::cout << subIndent << LBRANCH << args.back().name.value << "    Identifier " << args.back().name.span << "\n";
 		}
 	};
 
 	struct FunctionDeclarationStatement : public StatementNode {
-		Token typeName;
-		Token functionName;
-		Token openParen;
+		std::string typeName;
+		std::string functionName;
 		ArgumentsNode* args;
-		Token closeParen;
 		StatementNode* body;
 
-		inline FunctionDeclarationStatement(const Token& typeName, const Token& functionName, const Token& openParen, ArgumentsNode* args, const Token& closeParen, StatementNode* body):
-			typeName(typeName), functionName(functionName), openParen(openParen), args(args), closeParen(closeParen), body(body) {}
+		inline FunctionDeclarationStatement(const std::string& typeName, const std::string& functionName, ArgumentsNode* args, StatementNode* body):
+			typeName(typeName), functionName(functionName), args(args), body(body) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
@@ -341,11 +317,9 @@ namespace AST {
 			std::cout << RBRANCH << "    FunctionDeclarationStatement " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			std::cout << subIndent << VBRANCH << typeName.value << "    Typename " << typeName.span << "\n";
-			std::cout << subIndent << VBRANCH << functionName.value << "    Identifier " << functionName.span << "\n";
-			std::cout << subIndent << VBRANCH << openParen.value << "    OpenParen " << openParen.span << "\n";
+			std::cout << subIndent << VBRANCH << typeName << "    Typename " << "\n";
+			std::cout << subIndent << VBRANCH << functionName << "    Identifier " << "\n";
 			args->print(subIndent, false);
-			std::cout << subIndent << VBRANCH << closeParen.value << "    CloseParen " << closeParen.span << "\n";
 			body->print(subIndent, true);
 		}
 	};

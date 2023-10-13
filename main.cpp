@@ -6,16 +6,17 @@
 
 
 
-// constexpr const char *const code = R"(
-// 	float f(float x) {
-// 		return (x + 1) * x;
-// 	}
-
-// 	float b = f(0);
-// )";
 constexpr const char *const code = R"(
-	(1 + 2) * 7 / F(x)
+	float f(float x) {
+		if(x)
+			return (x + 1) * x;
+	}
+
+	float b = f(0);
 )";
+// constexpr const char *const code = R"(
+// 	(1 + 2) * 7 / F(x)
+// )";
 
 void run() {
 	Lexer lexer(code);
@@ -24,7 +25,7 @@ void run() {
 
 	Parser parser(lexer);
 
-	const ParseTree::ExpressionNode* tree = parser.parse();
+	const ParseTree::Program* tree = parser.parse();
 
 	std::cout << "ParseTree:  " << tree << "\n";
 	tree->print("", true);

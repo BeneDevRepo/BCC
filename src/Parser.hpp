@@ -484,14 +484,9 @@ public:
 		return nullptr;
 	}
 
-	inline ParseTree::ExpressionNode* parse() {
-		ParseTree::ExpressionNode* tree = expression();
+	inline ParseTree::Program* parse() {
+		ParseTree::Program* tree = program();
 
 		return tree;
 	}
-	// inline ParseTree::Program* parse() {
-	// 	ParseTree::Program* tree = program();
-
-	// 	return tree;
-	// }
 };
