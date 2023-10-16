@@ -79,7 +79,6 @@ struct TokenDefinition {
 
 const thread_local TokenDefinition tokenDefinitions[] {
 	// keywords:
-	{ std::regex("(void)\\W"), Token::Type::VOID },
 	{ std::regex("(return)\\W"), Token::Type::RETURN },
 	{ std::regex("(if)\\W"), Token::Type::IF },
 	{ std::regex("(while)\\W"), Token::Type::WHILE },
@@ -91,6 +90,7 @@ const thread_local TokenDefinition tokenDefinitions[] {
 	{ std::regex("(continue)\\W"), Token::Type::CONTINUE },
 
 	// types:
+	{ std::regex("(void)\\W"), Token::Type::VOID },
 	{ std::regex("(bool)\\W"), Token::Type::BOOL },
 	{ std::regex("(int)\\W"), Token::Type::INT },
 	{ std::regex("(float)\\W"), Token::Type::FLOAT },

@@ -34,11 +34,11 @@ namespace ParseTree {
 
 
 	struct ExpressionNode : public Node {
-		inline virtual AST::ExpressionNode* ast() const = 0;
+		inline virtual const AST::ExpressionNode* ast() const = 0;
 	};
 
 	struct StatementNode : public Node {
-		inline virtual AST::StatementNode* ast() const = 0;
+		inline virtual const AST::StatementNode* ast() const = 0;
 	};
 
 
@@ -46,11 +46,11 @@ namespace ParseTree {
 	struct FunctionCallExpressionNode : public ExpressionNode {
 		Token name; // function name
 		Token openParen;
-		std::vector<ExpressionNode*> args; // function call arguments
+		std::vector<const ExpressionNode*> args; // function call arguments
 		std::vector<Token> commas; // commas between function call arguments
 		Token closeParen;
 
-		inline FunctionCallExpressionNode(const Token& name, const Token& openParen, const std::vector<ExpressionNode*>& args, const std::vector<Token>& commas, const Token& closeParen):
+		inline FunctionCallExpressionNode(const Token& name, const Token& openParen, const std::vector<const ExpressionNode*>& args, const std::vector<Token>& commas, const Token& closeParen):
 			name(name), openParen(openParen), args(args), commas(commas), closeParen(closeParen) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -77,8 +77,8 @@ namespace ParseTree {
 			return res;
 		}
 
-		inline virtual AST::ExpressionNode* ast() const {
-			std::vector<AST::ExpressionNode*> astArgs;
+		inline virtual const AST::ExpressionNode* ast() const {
+			std::vector<const AST::ExpressionNode*> astArgs;
 			for(const ExpressionNode* arg : args)
 				astArgs.push_back(arg->ast());
 			return new AST::FunctionCallExpressionNode(name.value, astArgs);
@@ -87,10 +87,10 @@ namespace ParseTree {
 
 	struct GroupExpressionNode : public ExpressionNode {
 		Token openParen;
-		ExpressionNode *a;
+		const ExpressionNode *a;
 		Token closeParen;
 
-		inline GroupExpressionNode(const Token& openParen, ExpressionNode* a, const Token& closeParen): openParen(openParen), a(a), closeParen(closeParen) {}
+		inline GroupExpressionNode(const Token& openParen, const ExpressionNode* a, const Token& closeParen): openParen(openParen), a(a), closeParen(closeParen) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
@@ -107,16 +107,16 @@ namespace ParseTree {
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + openParen.value + a->toString(0) + closeParen.value; }
 
-		inline virtual AST::ExpressionNode* ast() const {
+		inline virtual const AST::ExpressionNode* ast() const {
 			return a->ast();
 		}
 	};
 
 	struct UnaryExpressionNode : public ExpressionNode {
 		Token op; // operation
-		ExpressionNode *a;
+		const ExpressionNode *a;
 
-		inline UnaryExpressionNode(const Token& op, ExpressionNode* a): op(op), a(a) {}
+		inline UnaryExpressionNode(const Token& op, const ExpressionNode* a): op(op), a(a) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
@@ -131,17 +131,17 @@ namespace ParseTree {
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + op.value + a->toString(0); }
 
-		inline virtual AST::ExpressionNode* ast() const {
+		inline virtual const AST::ExpressionNode* ast() const {
 			return new AST::UnaryExpressionNode(op.value[0], a->ast());
 		}
 	};
 
 	struct BinaryExpressionNode : public ExpressionNode {
-		ExpressionNode *a;
+		const ExpressionNode *a;
 		Token op; // operation
-		ExpressionNode *b;
+		const ExpressionNode *b;
 
-		inline BinaryExpressionNode(ExpressionNode* a, const Token& op, ExpressionNode* b): a(a), op(op), b(b) {}
+		inline BinaryExpressionNode(const ExpressionNode* a, const Token& op, const ExpressionNode* b): a(a), op(op), b(b) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
@@ -157,7 +157,7 @@ namespace ParseTree {
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + a->toString(0) + " " + op.value + " " + b->toString(0); }
 
-		inline virtual AST::ExpressionNode* ast() const {
+		inline virtual const AST::ExpressionNode* ast() const {
 			return new AST::BinaryExpressionNode(a->ast(), op.value[0], b->ast());
 		}
 	};
@@ -176,7 +176,7 @@ namespace ParseTree {
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + name.value; }
 
-		inline virtual AST::ExpressionNode* ast() const {
+		inline virtual const AST::ExpressionNode* ast() const {
 			return new AST::IdentifierNode(name.value);
 		}
 	};
@@ -195,7 +195,7 @@ namespace ParseTree {
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + value.value; }
 
-		inline virtual AST::LiteralNode* ast() const {
+		inline virtual const AST::LiteralNode* ast() const {
 			switch(value.type) {
 				case Token::Type::INT_LITERAL:
 					return new AST::IntLiteralNode(std::stoi(value.value));
@@ -208,16 +208,15 @@ namespace ParseTree {
 	// Statements:
 	struct VariableDeclarationStatement : public StatementNode {
 		Token typeName;
-		// IdentifierNode *varName;
 		Token varName;
 		Token equals;
-		ExpressionNode *expr;
+		const ExpressionNode* expr;
 		Token semicolon;
 
-		inline VariableDeclarationStatement(const Token& typeName, const Token& varName, const Token& semicolon):
-			typeName(typeName), varName(varName), equals(), expr(nullptr), semicolon(semicolon) {}
-		inline VariableDeclarationStatement(const Token& typeName, const Token& varName, const Token& equals, ExpressionNode* expr, const Token& semicolon):
+		inline VariableDeclarationStatement(const Token& typeName, const Token& varName, const Token& equals, const ExpressionNode* expr, const Token& semicolon):
 			typeName(typeName), varName(varName), equals(equals), expr(expr), semicolon(semicolon) {}
+		inline VariableDeclarationStatement(const Token& typeName, const Token& varName, const Token& semicolon):
+			VariableDeclarationStatement(typeName, varName, equals, nullptr, semicolon) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
@@ -238,25 +237,22 @@ namespace ParseTree {
 
 		inline virtual Span span() const { return Span(typeName.span, semicolon.span); }
 
-		// inline virtual std::string toString(const size_t indent) const { return space(indent) + typeName.value + " " + varName->toString(0) + (expr ? (" " + equals.value + " " + expr->toString(0)) : "") + semicolon.value; }
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + typeName.value + " " + varName.value + (expr ? (" " + equals.value + " " + expr->toString(0)) : "") + semicolon.value; }
 
-		inline virtual AST::StatementNode* ast() const {
-			std::vector<AST::StatementNode*> statements;
-			statements.push_back(new AST::VariableDeclarationStatement(typeName.value, varName.value));
-		
-			if(expr)
-				statements.push_back(new AST::VariableAssignmentStatement(varName.value, expr->ast()));
+		inline virtual const AST::StatementNode* ast() const {
+			if(!expr)
+				return new AST::VariableDeclarationStatement(typeName.value, varName.value);
 
-			return new AST::StatementList(statements);
+			const AST::VariableAssignmentStatement* assignment = new AST::VariableAssignmentStatement(varName.value, expr->ast());
+			return new AST::VariableDeclarationStatement(typeName.value, varName.value, assignment);
 		}
 	};
 
 	struct ExpressionStatement : public StatementNode {
-		ExpressionNode* expr;
+		const ExpressionNode* expr;
 		Token semicolon;
 
-		inline ExpressionStatement(ExpressionNode* expr, const Token& semicolon): expr(expr), semicolon(semicolon) {}
+		inline ExpressionStatement(const ExpressionNode* expr, const Token& semicolon): expr(expr), semicolon(semicolon) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
@@ -276,17 +272,18 @@ namespace ParseTree {
 			return expr->toString(indent) + semicolon.value;
 		}
 
-		inline virtual AST::StatementNode* ast() const {
+		inline virtual const AST::StatementNode* ast() const {
 			return new AST::ExpressionStatement(expr->ast());
 		}
 	};
 
 	struct BlockStatement : public StatementNode {
 		Token openBrace;
-		std::vector<StatementNode*> statements;
+		std::vector<const StatementNode*> statements;
 		Token closeBrace;
 
-		inline BlockStatement(const Token& openBrace, const std::vector<StatementNode*>& statements, const Token& closeBrace): openBrace(openBrace), statements(statements), closeBrace(closeBrace) {}
+		inline BlockStatement(const Token& openBrace, const std::vector<const StatementNode*>& statements, const Token& closeBrace):
+			openBrace(openBrace), statements(statements), closeBrace(closeBrace) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
@@ -296,7 +293,7 @@ namespace ParseTree {
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
 			std::cout << subIndent << VBRANCH << openBrace.value << "    OpenBrace " << openBrace.span << "\n";
 
-			for(StatementNode* statement : statements)
+			for(const StatementNode* statement : statements)
 				statement->print(subIndent, false);
 
 			std::cout << subIndent << LBRANCH << closeBrace.value << "    CloseBrace " << closeBrace.span << "\n";
@@ -315,8 +312,8 @@ namespace ParseTree {
 			return res;
 		}
 
-		inline virtual AST::StatementNode* ast() const {
-			std::vector<AST::StatementNode*> astStatements;
+		inline virtual const AST::StatementNode* ast() const {
+			std::vector<const AST::StatementNode*> astStatements;
 
 			for(const StatementNode* statement : statements)
 				astStatements.push_back(statement->ast());
@@ -327,10 +324,10 @@ namespace ParseTree {
 
 	struct ReturnStatement : public StatementNode {
 		Token returnToken;
-		ExpressionNode* expr;
+		const ExpressionNode* expr;
 		Token semicolon;
 
-		inline ReturnStatement(const Token& returnToken, ExpressionNode* expr, const Token& semicolon):
+		inline ReturnStatement(const Token& returnToken, const ExpressionNode* expr, const Token& semicolon):
 			returnToken(returnToken), expr(expr), semicolon(semicolon) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -348,7 +345,7 @@ namespace ParseTree {
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + returnToken.value + " " + expr->toString(0) + semicolon.value; }
 
-		inline virtual AST::StatementNode* ast() const {
+		inline virtual const AST::StatementNode* ast() const {
 			return new AST::ReturnStatement(expr->ast());
 		}
 	};
@@ -356,11 +353,11 @@ namespace ParseTree {
 	struct IfStatement : public StatementNode {
 		Token ifToken;
 		Token openParen;
-		ExpressionNode* condition;
+		const ExpressionNode* condition;
 		Token closeParen;
-		StatementNode* body;
+		const StatementNode* body;
 
-		inline IfStatement(const Token& ifToken, const Token& openParen, ExpressionNode* condition, const Token& closeParen, StatementNode* body):
+		inline IfStatement(const Token& ifToken, const Token& openParen, const ExpressionNode* condition, const Token& closeParen, const StatementNode* body):
 			ifToken(ifToken), openParen(openParen), condition(condition), closeParen(closeParen), body(body) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -380,7 +377,7 @@ namespace ParseTree {
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + ifToken.value + openParen.value + condition->toString(0) + closeParen.value + "\n" + body->toString(indent); }
 
-		inline virtual AST::StatementNode* ast() const {
+		inline virtual const AST::StatementNode* ast() const {
 			return new AST::IfStatement(condition->ast(), body->ast());
 		}
 	};
@@ -388,11 +385,11 @@ namespace ParseTree {
 	struct WhileStatement : public StatementNode {
 		Token whileToken;
 		Token openParen;
-		ExpressionNode* condition;
+		const ExpressionNode* condition;
 		Token closeParen;
-		StatementNode* body;
+		const StatementNode* body;
 
-		inline WhileStatement(const Token& whileToken, const Token& openParen, ExpressionNode* condition, const Token& closeParen, StatementNode* body):
+		inline WhileStatement(const Token& whileToken, const Token& openParen, const ExpressionNode* condition, const Token& closeParen, const StatementNode* body):
 			whileToken(whileToken), openParen(openParen), condition(condition), closeParen(closeParen), body(body) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -412,7 +409,7 @@ namespace ParseTree {
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + whileToken.value + openParen.value + condition->toString(0) + closeParen.value + "\n" + body->toString(indent); }
 
-		inline virtual AST::StatementNode* ast() const {
+		inline virtual const AST::StatementNode* ast() const {
 			return new AST::WhileStatement(condition->ast(), body->ast());
 		}
 	};
@@ -464,11 +461,11 @@ namespace ParseTree {
 		Token typeName;
 		Token functionName;
 		Token openParen;
-		ArgumentsNode* args;
+		const ArgumentsNode* args;
 		Token closeParen;
-		StatementNode* body;
+		const StatementNode* body;
 
-		inline FunctionDeclarationStatement(const Token& typeName, const Token& functionName, const Token& openParen, ArgumentsNode* args, const Token& closeParen, StatementNode* body):
+		inline FunctionDeclarationStatement(const Token& typeName, const Token& functionName, const Token& openParen, const ArgumentsNode* args, const Token& closeParen, const StatementNode* body):
 			typeName(typeName), functionName(functionName), openParen(openParen), args(args), closeParen(closeParen), body(body) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -489,13 +486,13 @@ namespace ParseTree {
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + typeName.value + " " + functionName.value + openParen.value + args->toString(0) + closeParen.value + "\n" + body->toString(indent) + "\n"; }
 
-		inline virtual AST::StatementNode* ast() const {
+		inline virtual const AST::StatementNode* ast() const {
 			std::vector<AST::ArgumentsNode::Argument> astArgsVec;
 
 			for(const auto& arg : args->args)
 				astArgsVec.emplace_back(AST::ArgumentsNode::Argument{ arg.type.value, arg.name.value });
 			
-			AST::ArgumentsNode* astArgs = new AST::ArgumentsNode(astArgsVec);
+			const AST::ArgumentsNode* astArgs = new AST::ArgumentsNode(astArgsVec);
 
 			return new AST::FunctionDeclarationStatement(typeName.value, functionName.value, astArgs, body->ast());
 		}
@@ -503,9 +500,9 @@ namespace ParseTree {
 
 	// Program:
 	struct Program : public Node {
-		std::vector<StatementNode*> statements;
+		std::vector<const StatementNode*> statements;
 
-		inline Program(const std::vector<StatementNode*>& statements): statements(statements) {}
+		inline Program(const std::vector<const StatementNode*>& statements): statements(statements) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
@@ -514,7 +511,7 @@ namespace ParseTree {
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
 
-			for(StatementNode* statement : statements)
+			for(const StatementNode* statement : statements)
 				statement->print(subIndent, statement == statements.back());
 		}
 
@@ -529,8 +526,8 @@ namespace ParseTree {
 			return res;
 		}
 
-		inline AST::StatementList* ast() const {
-			std::vector<AST::StatementNode*> astStatements;
+		inline const AST::StatementList* ast() const {
+			std::vector<const AST::StatementNode*> astStatements;
 
 			for(const StatementNode* statement : statements)
 				astStatements.push_back(statement->ast());

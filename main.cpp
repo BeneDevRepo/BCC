@@ -2,21 +2,19 @@
 
 #include "Lexer.hpp"
 #include "Parser.hpp"
-#include "SemanticAnalyzer.hpp"
-
+#include "SymbolTable.hpp"
+#include "Interpreter.hpp"
 
 
 constexpr const char *const code = R"(
 	float f(float x) {
+		float x = 7;
 		if(x)
 			return (x + 1) * x;
 	}
 
 	float b = f(0);
 )";
-// constexpr const char *const code = R"(
-// 	(1 + 2) * 7 / F(x)
-// )";
 
 void run() {
 	Lexer lexer(code);
@@ -25,7 +23,7 @@ void run() {
 
 	Parser parser(lexer);
 
-	const ParseTree::Program* tree = parser.parse();
+	const ParseTree::Program* tree = parser.program();
 
 	std::cout << "ParseTree:  " << tree << "\n";
 	tree->print("", true);
@@ -36,6 +34,15 @@ void run() {
 
 	std::cout << "AST: " << ast << "\n";
 	ast->print("", true);
+	std::cout << "\n";
+
+	SymbolTable symbols;
+	ast->visit(symbols);
+	symbols.print();
+
+	Interpreter interpreter(ast, symbols);
+	std::cout << "\nInterpreting:\n";
+	interpreter.run();
 }
 
 int main() {

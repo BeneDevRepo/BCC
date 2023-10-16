@@ -25,11 +25,14 @@ public:
 	// ###########
 	// # Program #
 	// ###########
-	inline ParseTree::Program* program() {
-		std::vector<ParseTree::StatementNode*> statements;
+	inline const ParseTree::Program* program() {
+		std::vector<const ParseTree::StatementNode*> statements;
 
-		while(ParseTree::StatementNode* stm = statement())
+		while(const ParseTree::StatementNode* stm = statement())
 			statements.push_back(stm);
+		
+		if(peekToken().type != Token::Type::END)
+			throw std::runtime_error("Unable to parse program till EOF token");
 
 		return new ParseTree::Program(statements);
 	}
@@ -37,35 +40,35 @@ public:
 	// ##############
 	// # STATEMENTS #
 	// ##############
-	inline ParseTree::StatementNode* statement() {
-		if(ParseTree::BlockStatement* block = blockStatement())
+	inline const ParseTree::StatementNode* statement() {
+		if(const ParseTree::BlockStatement* block = blockStatement())
 			return block;
 
-		if(ParseTree::ReturnStatement* ret = returnStatement())
+		if(const ParseTree::ReturnStatement* ret = returnStatement())
 			return ret;
 
-		if(ParseTree::VariableDeclarationStatement* varDecl = variableDeclaration())
+		if(const ParseTree::VariableDeclarationStatement* varDecl = variableDeclaration())
 			return varDecl;
 
-		if(ParseTree::IfStatement* ifStmt = ifStatement())
+		if(const ParseTree::IfStatement* ifStmt = ifStatement())
 			return ifStmt;
 
-		if(ParseTree::WhileStatement* whileStmt = whileStatement())
+		if(const ParseTree::WhileStatement* whileStmt = whileStatement())
 			return whileStmt;
 
-		if(ParseTree::FunctionDeclarationStatement* function = functionDeclaration())
+		if(const ParseTree::FunctionDeclarationStatement* function = functionDeclaration())
 			return function;
 
-		if(ParseTree::ExpressionStatement* expStmt = expressionStatement())
+		if(const ParseTree::ExpressionStatement* expStmt = expressionStatement())
 			return expStmt;
 
 		return nullptr;
 	}
 
-	inline ParseTree::ExpressionStatement* expressionStatement() {
+	inline const ParseTree::ExpressionStatement* expressionStatement() {
 		tokenProvider.pushState();
 		
-		ParseTree::ExpressionNode* expr = expression();
+		const ParseTree::ExpressionNode* expr = expression();
 
 		if(!expr) {
 			tokenProvider.popState();
@@ -83,15 +86,15 @@ public:
 		return new ParseTree::ExpressionStatement(expr, semicolon);
 	}
 
-	inline ParseTree::BlockStatement* blockStatement() {
+	inline const ParseTree::BlockStatement* blockStatement() {
 		if(peekToken().type != Token::Type::BRACE_OPEN)
 			return nullptr;
 		
 		const Token& openBrace = getToken(); // consume '{'
 		
-		std::vector<ParseTree::StatementNode*> statements;
+		std::vector<const ParseTree::StatementNode*> statements;
 
-		while(ParseTree::StatementNode* stm = statement())
+		while(const ParseTree::StatementNode* stm = statement())
 			statements.push_back(stm);
 		
 		if(peekToken().type != Token::Type::BRACE_CLOSE)
@@ -102,13 +105,13 @@ public:
 		return new ParseTree::BlockStatement(openBrace, statements, closeBrace);
 	}
 
-	inline ParseTree::ReturnStatement* returnStatement() {
+	inline const ParseTree::ReturnStatement* returnStatement() {
 		if(peekToken().type != Token::Type::RETURN)
 			return nullptr;
 		
 		const Token& returnToken = getToken(); // consume 'return'
 		
-		ParseTree::ExpressionNode* expr = expression();
+		const ParseTree::ExpressionNode* expr = expression();
 		if(!expr || peekToken().type != Token::Type::SEMICOLON)
 			throw std::runtime_error("Error parsing return value expression");
 		
@@ -117,7 +120,7 @@ public:
 		return new ParseTree::ReturnStatement(returnToken, expr, semicolon);
 	}
 
-	inline ParseTree::VariableDeclarationStatement* variableDeclaration() {
+	inline const ParseTree::VariableDeclarationStatement* variableDeclaration() {
 		static constexpr auto isTypename = [](const Token& token) { const Token::Type type = token.type; return type == Token::Type::BOOL || type == Token::Type::INT || type == Token::Type::FLOAT || type == Token::Type::STRING; };
 
 		tokenProvider.pushState();
@@ -151,7 +154,7 @@ public:
 
 		const Token& equals = getToken(); // consume '='
 
-		ParseTree::ExpressionNode* expr = expression();
+		const ParseTree::ExpressionNode* expr = expression();
 
 		if(!expr) {
 			throw std::runtime_error("Failed to parse Variable Declaration!1");
@@ -171,7 +174,7 @@ public:
 		return new ParseTree::VariableDeclarationStatement(type, name, equals, expr, semicolon);
 	}
 
-	inline ParseTree::IfStatement* ifStatement() {
+	inline const ParseTree::IfStatement* ifStatement() {
 		tokenProvider.pushState();
 
 		if(peekToken().type != Token::Type::IF) {
@@ -188,7 +191,7 @@ public:
 		const Token& openParen = getToken(); // consume '('
 
 
-		ParseTree::ExpressionNode* condition = expression();
+		const ParseTree::ExpressionNode* condition = expression();
 		if(!condition) {
 			tokenProvider.popState();
 			return nullptr;
@@ -202,7 +205,7 @@ public:
 		const Token& closeParen = getToken(); // consume ')'
 
 
-		ParseTree::StatementNode* body = statement();
+		const ParseTree::StatementNode* body = statement();
 		if(!body) {
 			tokenProvider.popState();
 			return nullptr;
@@ -212,7 +215,7 @@ public:
 		return new ParseTree::IfStatement(ifToken, openParen, condition, closeParen, body);
 	}
 
-	inline ParseTree::WhileStatement* whileStatement() {
+	inline const ParseTree::WhileStatement* whileStatement() {
 		tokenProvider.pushState();
 
 		if(peekToken().type != Token::Type::WHILE) {
@@ -229,7 +232,7 @@ public:
 		const Token& openParen = getToken(); // consume '('
 
 
-		ParseTree::ExpressionNode* condition = expression();
+		const ParseTree::ExpressionNode* condition = expression();
 		if(!condition) {
 			tokenProvider.popState();
 			return nullptr;
@@ -243,7 +246,7 @@ public:
 		const Token& closeParen = getToken(); // consume ')'
 
 
-		ParseTree::StatementNode* body = statement();
+		const ParseTree::StatementNode* body = statement();
 		if(!body) {
 			tokenProvider.popState();
 			return nullptr;
@@ -253,7 +256,7 @@ public:
 		return new ParseTree::WhileStatement(whileToken, openParen, condition, closeParen, body);
 	}
 
-	inline ParseTree::ArgumentsNode* argumentList() {
+	inline const ParseTree::ArgumentsNode* argumentList() {
 		static constexpr auto isTypename = [](const Token& token) { const Token::Type type = token.type; return type == Token::Type::BOOL || type == Token::Type::INT || type == Token::Type::FLOAT || type == Token::Type::STRING; };
 
 		std::vector<ParseTree::ArgumentsNode::Argument> args;
@@ -292,7 +295,7 @@ public:
 		return new ParseTree::ArgumentsNode(args, commas);
 	}
 
-	inline ParseTree::FunctionDeclarationStatement* functionDeclaration() {
+	inline const ParseTree::FunctionDeclarationStatement* functionDeclaration() {
 		static constexpr auto isTypename = [](const Token& token) { const Token::Type type = token.type; return type == Token::Type::VOID || type == Token::Type::BOOL || type == Token::Type::INT || type == Token::Type::FLOAT || type == Token::Type::STRING; };
 
 		tokenProvider.pushState();
@@ -318,7 +321,7 @@ public:
 		const Token& openParen = getToken(); // consume '('
 
 
-		ParseTree::ArgumentsNode* args = argumentList();
+		const ParseTree::ArgumentsNode* args = argumentList();
 		if(!args) {
 			tokenProvider.popState();
 			return nullptr;
@@ -332,7 +335,7 @@ public:
 		const Token& closeParen = getToken(); // consume ')'
 
 
-		ParseTree::StatementNode* body = statement();
+		const ParseTree::StatementNode* body = statement();
 		if(!body) {
 			tokenProvider.popState();
 			return nullptr;
@@ -347,43 +350,43 @@ public:
 	// ###############
 	// # EXPRESSIONS #
 	// ###############
-	inline ParseTree::ExpressionNode* expression() {
+	inline const ParseTree::ExpressionNode* expression() {
 		return additiveExpression();
 	}
 	
-	inline ParseTree::ExpressionNode* additiveExpression() {
+	inline const ParseTree::ExpressionNode* additiveExpression() {
 		constexpr static auto isSumType = [](const Token::Type type) { return type == Token::Type::PLUS || type == Token::Type::MINUS; };
 
-		ParseTree::ExpressionNode* a = multiplicativeExpression();
+		const ParseTree::ExpressionNode* a = multiplicativeExpression();
 		
 		while(isSumType(peekToken().type)) {
 			const Token& op = getToken(); // consume operation token
-			ParseTree::ExpressionNode* b = multiplicativeExpression();
+			const ParseTree::ExpressionNode* b = multiplicativeExpression();
 			a = new ParseTree::BinaryExpressionNode(a, op, b);
 		}
 
 		return a;
 	}
 
-	inline ParseTree::ExpressionNode* multiplicativeExpression() {
+	inline const ParseTree::ExpressionNode* multiplicativeExpression() {
 		constexpr static auto isMulType = [](const Token::Type& type) { return type == Token::Type::MUL || type == Token::Type::DIV; };
 
-		ParseTree::ExpressionNode* a = primaryExpression();
+		const ParseTree::ExpressionNode* a = primaryExpression();
 
 		while(isMulType(peekToken().type)) {
 			const Token& op = getToken(); // consume operation token
-			ParseTree::ExpressionNode* b = primaryExpression();
+			const ParseTree::ExpressionNode* b = primaryExpression();
 			a = new ParseTree::BinaryExpressionNode(a, op, b);
 		}
 
 		return a;
 	}
 
-	inline ParseTree::ExpressionNode* primaryExpression() {
+	inline const ParseTree::ExpressionNode* primaryExpression() {
 		// group:
 		if(peekToken().type == Token::Type::PAREN_OPEN) {
 			const Token& openParen = getToken(); // consume '('
-			ParseTree::ExpressionNode *expr = expression();
+			const ParseTree::ExpressionNode *expr = expression();
 			if(!expr)
 				throw std::runtime_error("No Expression inside parentheses");
 			if(peekToken().type != Token::Type::PAREN_CLOSE)
@@ -393,15 +396,15 @@ public:
 		}
 
 		// literal:
-		if(ParseTree::LiteralNode* n = literal())
+		if(const ParseTree::LiteralNode* n = literal())
 			return n;
 
 		// function call:
-		if(ParseTree::FunctionCallExpressionNode* f = functionCall())
+		if(const ParseTree::FunctionCallExpressionNode* f = functionCall())
 			return f;
 		
 		// identifier (variable name):
-		if(ParseTree::IdentifierNode* i = identifier())
+		if(const ParseTree::IdentifierNode* i = identifier())
 			return i;
 		
 		// negation:
@@ -413,7 +416,7 @@ public:
 		return nullptr;
 	}
 
-	inline ParseTree::FunctionCallExpressionNode* functionCall() {
+	inline const ParseTree::FunctionCallExpressionNode* functionCall() {
 		// static constexpr auto isTypename = [](const Token& token) { const Token::Type type = token.type; return type == Token::Type::BOOL || type == Token::Type::INT || type == Token::Type::FLOAT || type == Token::Type::STRING; };
 
 		tokenProvider.pushState();
@@ -430,17 +433,17 @@ public:
 		}
 		const Token& openParen = getToken(); // consume '('
 
-		std::vector<ParseTree::ExpressionNode*> args;
+		std::vector<const ParseTree::ExpressionNode*> args;
 		std::vector<Token> commas;
 
-		ParseTree::ExpressionNode* expr = expression();
+		const ParseTree::ExpressionNode* expr = expression();
 		if(expr) {
 			args.push_back(expr); // consume first argument
 			
 			for(;peekToken().type == Token::Type::COMMA;) {
 				commas.push_back(getToken()); // consume ','
 
-				ParseTree::ExpressionNode* expr = expression();
+				const ParseTree::ExpressionNode* expr = expression();
 				if(!expr)
 					throw std::runtime_error("Error parsing function call: no expression after comma");
 				
@@ -458,7 +461,7 @@ public:
 		return new ParseTree::FunctionCallExpressionNode(name, openParen, args, commas, closeParen);
 	}
 
-	inline ParseTree::IdentifierNode* identifier() {
+	inline const ParseTree::IdentifierNode* identifier() {
 		if(peekToken().type == Token::Type::IDENTIFIER)
 			return new ParseTree::IdentifierNode(getToken());
 			
@@ -466,7 +469,7 @@ public:
 	}
 
 
-	inline ParseTree::LiteralNode* literal() {
+	inline const ParseTree::LiteralNode* literal() {
 		constexpr static auto isLiteralType = [](const Token::Type type) {
 			switch(type) {
 				case Token::Type::BOOL_LITERAL:
@@ -482,11 +485,5 @@ public:
 			return new ParseTree::LiteralNode(getToken());
 		
 		return nullptr;
-	}
-
-	inline ParseTree::Program* parse() {
-		ParseTree::Program* tree = program();
-
-		return tree;
 	}
 };
