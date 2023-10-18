@@ -211,6 +211,10 @@ public:
 			return nullptr;
 		}
 
+		// Prevent block inside If-Statement from creating an additional Scope
+		if(body->type() == ParseTree::Node::Type::BLOCK_STATEMENT)
+			dynamic_cast<const ParseTree::BlockStatement*>(body)->createScope = false;
+
 		tokenProvider.yeetState();
 		return new ParseTree::IfStatement(ifToken, openParen, condition, closeParen, body);
 	}
@@ -251,6 +255,10 @@ public:
 			tokenProvider.popState();
 			return nullptr;
 		}
+
+		// Prevent block inside While-Statement from creating an additional Scope
+		if(body->type() == ParseTree::Node::Type::BLOCK_STATEMENT)
+			dynamic_cast<const ParseTree::BlockStatement*>(body)->createScope = false;
 
 		tokenProvider.yeetState();
 		return new ParseTree::WhileStatement(whileToken, openParen, condition, closeParen, body);
@@ -341,6 +349,9 @@ public:
 			return nullptr;
 		}
 
+		// Prevent block inside Function Declaration from creating an additional Scope
+		if(body->type() == ParseTree::Node::Type::BLOCK_STATEMENT)
+			dynamic_cast<const ParseTree::BlockStatement*>(body)->createScope = false;
 
 		tokenProvider.yeetState();
 		return new ParseTree::FunctionDeclarationStatement(typeName, name, openParen, args, closeParen, body);
@@ -351,14 +362,33 @@ public:
 	// # EXPRESSIONS #
 	// ###############
 	inline const ParseTree::ExpressionNode* expression() {
-		return additiveExpression();
+		// return additiveExpression();
+		return compareExpression();
 	}
-	
+
+	inline const ParseTree::ExpressionNode* compareExpression() {
+		constexpr static auto isCompType = [](const Token::Type type) {
+			return type == Token::Type::COMP_EQ || type == Token::Type::COMP_NE
+				|| type == Token::Type::COMP_GT || type == Token::Type::COMP_LT
+				|| type == Token::Type::COMP_GE || type == Token::Type::COMP_LE;
+		};
+
+		const ParseTree::ExpressionNode* a = additiveExpression();
+
+		while(isCompType(peekToken().type)) {
+			const Token& op = getToken(); // consume operation token
+			const ParseTree::ExpressionNode* b = additiveExpression();
+			a = new ParseTree::BinaryExpressionNode(a, op, b);
+		}
+
+		return a;
+	}
+
 	inline const ParseTree::ExpressionNode* additiveExpression() {
 		constexpr static auto isSumType = [](const Token::Type type) { return type == Token::Type::PLUS || type == Token::Type::MINUS; };
 
 		const ParseTree::ExpressionNode* a = multiplicativeExpression();
-		
+
 		while(isSumType(peekToken().type)) {
 			const Token& op = getToken(); // consume operation token
 			const ParseTree::ExpressionNode* b = multiplicativeExpression();

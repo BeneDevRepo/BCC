@@ -31,6 +31,7 @@ struct Token {
 		BOOL_LITERAL, INT_LITERAL, FLOAT_LITERAL, STRING_LITERAL,
 
 		SEMICOLON, COMMA, DOT, EQUAL, PLUS, MINUS, MUL, DIV, PAREN_OPEN, PAREN_CLOSE, BRACE_OPEN, BRACE_CLOSE, SQUARE_OPEN, SQUARE_CLOSE,
+		COMP_EQ, COMP_NE, COMP_GT, COMP_LT, COMP_GE, COMP_LE,
 
 		IDENTIFIER,
 
@@ -106,7 +107,7 @@ const thread_local TokenDefinition tokenDefinitions[] {
 	{ std::regex("(;)"), Token::Type::SEMICOLON },
 	{ std::regex("(,)"), Token::Type::COMMA },
 	{ std::regex("(\\.)"), Token::Type::DOT },
-	{ std::regex("(=)"), Token::Type::EQUAL },
+	{ std::regex("(=)[^=]"), Token::Type::EQUAL },
 	{ std::regex("(\\+)"), Token::Type::PLUS },
 	{ std::regex("(-)"), Token::Type::MINUS },
 	{ std::regex("(\\*)"), Token::Type::MUL },
@@ -117,6 +118,13 @@ const thread_local TokenDefinition tokenDefinitions[] {
 	{ std::regex("(\\})"), Token::Type::BRACE_CLOSE },
 	{ std::regex("(\\[)"), Token::Type::SQUARE_OPEN },
 	{ std::regex("(\\])"), Token::Type::SQUARE_CLOSE },
+
+	{ std::regex("(==)"), Token::Type::COMP_EQ },
+	{ std::regex("(!=)"), Token::Type::COMP_NE },
+	{ std::regex("(>)[^=]"), Token::Type::COMP_GT },
+	{ std::regex("(<)[^=]"), Token::Type::COMP_LT },
+	{ std::regex("(>=)"), Token::Type::COMP_GE },
+	{ std::regex("(<=)"), Token::Type::COMP_LE },
 
 	{ std::regex("([a-zA-Z_]\\w*)"), Token::Type::IDENTIFIER },
 

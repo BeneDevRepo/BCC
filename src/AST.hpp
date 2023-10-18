@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "SymbolTable.hpp"
+#include "ScopedSymbolTable.hpp"
 #include "Tokens.hpp"
 
 
@@ -28,30 +28,40 @@ namespace AST {
 	struct Node {
 	public:
 		enum class Type : uint8_t {
-			LITERAL_EXPRESSION, VARIABLE_EXPRESSION, UNARY_EXPRESSION, BINARY_EXPRESSION, CALL_EXPRESSION, 
+			LITERAL_EXPRESSION, VARIABLE_EXPRESSION, UNARY_EXPRESSION, BINARY_EXPRESSION, CALL_EXPRESSION,
 
 			EXPRESSION_STATEMENT, STATEMENT_LIST, RETURN_STATEMENT,
 			IF_STATEMENT, WHILE_STATEMENT, FUNCTION_DECLARATION_STATEMENT, VARIABLE_DECLARATION_STATEMENT, VARIABLE_ASSIGNMENT_STATEMENT,
 		};
+
+	protected:
+		ScopedSymbolTable* scope;
+
 	private:
 		Type type_;
 		Span span_;
+
 	public:
-		inline Node(const Type type): type_(type) {}
+		inline Node(ScopedSymbolTable* scope, const Type type): scope(scope), type_(type) {}
 		inline virtual ~Node() {}
-		inline virtual void print(const std::string& indent = "", const bool isLast = true) const = 0;
-		inline virtual void visit(SymbolTable& symbols) const = 0;
+	
+	public:
 		inline Type type() const { return type_; }
 		inline Span span() const { return span_; }
+		inline const ScopedSymbolTable& getScope() const { return *scope; }
+
+	public:
+		inline virtual void print(const std::string& indent = "", const bool isLast = true) const = 0;
+		inline virtual void visit() const = 0;
 	};
 
 
 	struct ExpressionNode : public Node {
-		inline ExpressionNode(const Node::Type type): Node(type) {}
+		inline ExpressionNode(ScopedSymbolTable* scope_, const Node::Type type): Node(scope_, type) {}
 	};
 
 	struct StatementNode : public Node {
-		inline StatementNode(const Node::Type type): Node(type) {}
+		inline StatementNode(ScopedSymbolTable* scope_, const Node::Type type): Node(scope_, type) {}
 	};
 
 
@@ -60,8 +70,8 @@ namespace AST {
 		std::string name; // function name
 		std::vector<const ExpressionNode*> args; // function call arguments
 
-		inline FunctionCallExpressionNode(const std::string& name, const std::vector<const ExpressionNode*>& args):
-			ExpressionNode(Node::Type::CALL_EXPRESSION),
+		inline FunctionCallExpressionNode(ScopedSymbolTable* scope_, const std::string& name, const std::vector<const ExpressionNode*>& args):
+			ExpressionNode(scope_, Node::Type::CALL_EXPRESSION),
 			name(name), args(args) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -74,52 +84,77 @@ namespace AST {
 				arg->print(subIndent, arg == args.back());
 		}
 
-		inline virtual void visit(SymbolTable& symbols) const {
-			if(!symbols.lookup(name))
+		inline virtual void visit() const {
+			if(!scope->lookupRecursive(name))
 				throw std::runtime_error("Tried to call unknown function \"" + name + "\"");
 
-			if(symbols.lookup(name)->category != Symbol::Category::FUNCTION)
+			if(scope->lookupRecursive(name)->category != Symbol::Category::FUNCTION)
 				throw std::runtime_error("Symbol \"" + name + "\" in Function call expression does not refer to a function.");
-			
+
 			for(const ExpressionNode* arg : args)
-				arg->visit(symbols);
+				arg->visit();
 		}
 	};
 
 	struct UnaryExpressionNode : public ExpressionNode {
-		char op; // operation
+		enum class Operation : uint8_t {
+			PLUS, MINUS,
+		} op; // operation
+		std::string opString; // TODO: remove duplicate
 		const ExpressionNode *a;
 
-		inline UnaryExpressionNode(const char op, const ExpressionNode* a):
-			ExpressionNode(Node::Type::UNARY_EXPRESSION),
-			op(op), a(a) {}
+		inline UnaryExpressionNode(ScopedSymbolTable* scope_, const std::string& op_, const ExpressionNode* a):
+			ExpressionNode(scope_, Node::Type::UNARY_EXPRESSION),
+			opString(op_), a(a) {
+			if(op_ == "+") op = Operation::PLUS;
+			else if(op_ == "-") op = Operation::MINUS;
+			else throw std::runtime_error("Invalid unary operator");
+		}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
-			std::cout << op;
+			std::cout << opString;
 			std::cout << "    UnaryExpression " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
 			a->print(subIndent, true);
 		}
 
-		inline virtual void visit(SymbolTable& symbols) const {
-			a->visit(symbols);
+		inline virtual void visit() const {
+			a->visit();
 		}
 	};
 
 	struct BinaryExpressionNode : public ExpressionNode {
+		enum class Operation : uint8_t {
+			PLUS, MINUS, MUL, DIV,
+
+			COMP_EQ, COMP_NE, COMP_GT, COMP_LT, COMP_GE, COMP_LE,
+		};
 		const ExpressionNode *a;
-		char op; // operation
+		Operation op;
+		std::string opString; // operation
 		const ExpressionNode *b;
 
-		inline BinaryExpressionNode(const ExpressionNode* a, const char op, const ExpressionNode* b):
-			ExpressionNode(Node::Type::BINARY_EXPRESSION),
-			a(a), op(op), b(b) {}
+		inline BinaryExpressionNode(ScopedSymbolTable* scope_, const ExpressionNode* a, const std::string& op_, const ExpressionNode* b):
+			ExpressionNode(scope_, Node::Type::BINARY_EXPRESSION),
+			a(a), opString(op_), b(b) {
+			if(op_ == "+") op = Operation::PLUS;
+			else if(op_ == "-") op = Operation::MINUS;
+			else if(op_ == "*") op = Operation::MUL;
+			else if(op_ == "/") op = Operation::DIV;
+			else if(op_ == "==") op = Operation::COMP_EQ;
+			else if(op_ == "!=") op = Operation::COMP_NE;
+			else if(op_ == ">") op = Operation::COMP_GT;
+			else if(op_ == "<") op = Operation::COMP_LT;
+			else if(op_ == ">=") op = Operation::COMP_GE;
+			else if(op_ == "<=") op = Operation::COMP_LE;
+			else throw std::runtime_error("Invalid binary operator");
+		}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
-			std::cout << op;
+			std::cout << opString;
 			std::cout << "    BinaryExpression " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
@@ -127,17 +162,17 @@ namespace AST {
 			b->print(subIndent, true);
 		}
 
-		inline virtual void visit(SymbolTable& symbols) const {
-			a->visit(symbols);
-			b->visit(symbols);
+		inline virtual void visit() const {
+			a->visit();
+			b->visit();
 		}
 	};
 
 	struct IdentifierNode : public ExpressionNode {
 		std::string name;
 
-		inline IdentifierNode(const std::string& name):
-			ExpressionNode(Node::Type::VARIABLE_EXPRESSION),
+		inline IdentifierNode(ScopedSymbolTable* scope_, const std::string& name):
+			ExpressionNode(scope_, Node::Type::VARIABLE_EXPRESSION),
 			name(name) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -145,8 +180,8 @@ namespace AST {
 			std::cout << "    Identifier " << span() << "\n";
 		}
 
-		inline virtual void visit(SymbolTable& symbols) const {
-			if(!symbols.lookup(name))
+		inline virtual void visit() const {
+			if(!scope->lookupRecursive(name))
 				throw std::runtime_error("Use of undeclared identifier \"" + name + "\"");
 		}
 	};
@@ -155,64 +190,72 @@ namespace AST {
 		enum class Type : uint8_t {
 			BOOL, INT, FLOAT, STRING
 		} type;
-		inline LiteralNode(const Type type):
-			ExpressionNode(Node::Type::LITERAL_EXPRESSION),
+		inline LiteralNode(ScopedSymbolTable* scope_, const Type type):
+			ExpressionNode(scope_, Node::Type::LITERAL_EXPRESSION),
 			type(type) {}
 	};
 
 	struct BoolLiteralNode : public LiteralNode {
 		bool value;
 
-		inline BoolLiteralNode(const bool value): LiteralNode(LiteralNode::Type::BOOL), value(value) {}
+		inline BoolLiteralNode(ScopedSymbolTable* scope_, const bool value):
+			LiteralNode(scope_, LiteralNode::Type::BOOL),
+			value(value) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH) << (value ? "true" : "false");
 			std::cout << "    BoolLiteral " << span() << "\n";
 		}
 
-		inline virtual void visit(SymbolTable& symbols) const {
+		inline virtual void visit() const {
 		}
 	};
 
 	struct IntLiteralNode : public LiteralNode {
 		int value;
 
-		inline IntLiteralNode(const int value): LiteralNode(LiteralNode::Type::INT), value(value) {}
+		inline IntLiteralNode(ScopedSymbolTable* scope_, const int value):
+			LiteralNode(scope_, LiteralNode::Type::INT),
+			value(value) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH) << value;
 			std::cout << "    IntLiteral " << span() << "\n";
 		}
 
-		inline virtual void visit(SymbolTable& symbols) const {
+		inline virtual void visit() const {
 		}
 	};
 
 	struct FloatLiteralNode : public LiteralNode {
 		float value;
 
-		inline FloatLiteralNode(const float value): LiteralNode(LiteralNode::Type::FLOAT), value(value) {}
+		inline FloatLiteralNode(ScopedSymbolTable* scope_, const float value):
+			LiteralNode(scope_, LiteralNode::Type::FLOAT),
+			value(value) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH) << value;
 			std::cout << "    FloatLiteral " << span() << "\n";
 		}
 
-		inline virtual void visit(SymbolTable& symbols) const {
+		inline virtual void visit() const {
 		}
 	};
 
 	struct StringLiteralNode : public LiteralNode {
 		std::string value;
 
-		inline StringLiteralNode(const std::string& value): LiteralNode(LiteralNode::Type::STRING), value(value) {}
+		inline StringLiteralNode(ScopedSymbolTable* scope_, const std::string& value):
+			LiteralNode(scope_, LiteralNode::Type::STRING),
+			value(value) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH) << value;
 			std::cout << "    StringLiteral " << span() << "\n";
 		}
 
-		inline virtual void visit(SymbolTable& symbols) const {
+		inline virtual void visit() const {
 		}
 	};
 
@@ -222,8 +265,8 @@ namespace AST {
 		std::string varName;
 		const ExpressionNode *expr;
 
-		inline VariableAssignmentStatement(const std::string& varName, const ExpressionNode* expr):
-			StatementNode(Node::Type::VARIABLE_ASSIGNMENT_STATEMENT),
+		inline VariableAssignmentStatement(ScopedSymbolTable* scope_, const std::string& varName, const ExpressionNode* expr):
+			StatementNode(scope_, Node::Type::VARIABLE_ASSIGNMENT_STATEMENT),
 			varName(varName), expr(expr) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -236,11 +279,11 @@ namespace AST {
 			expr->print(subIndent, true);
 		}
 
-		inline virtual void visit(SymbolTable& symbols) const {
-			if(!symbols.lookup(varName))
+		inline virtual void visit() const {
+			if(!scope->lookup(varName))
 				throw std::runtime_error("Assignment to undeclared Variable \"" + varName + "\"");
 			
-			expr->visit(symbols);
+			expr->visit();
 		}
 	};
 
@@ -249,10 +292,11 @@ namespace AST {
 		std::string varName;
 		const VariableAssignmentStatement* initialAssignment;
 
-		inline VariableDeclarationStatement(const std::string& typeName, const std::string& varName, const VariableAssignmentStatement* initialAssignment):
-			StatementNode(Node::Type::VARIABLE_DECLARATION_STATEMENT),
+		inline VariableDeclarationStatement(ScopedSymbolTable* scope_, const std::string& typeName, const std::string& varName, const VariableAssignmentStatement* initialAssignment):
+			StatementNode(scope_, Node::Type::VARIABLE_DECLARATION_STATEMENT),
 			typeName(typeName), varName(varName), initialAssignment(initialAssignment) {}
-		inline VariableDeclarationStatement(const std::string& typeName, const std::string& varName): VariableDeclarationStatement(typeName, varName, nullptr) {}
+		inline VariableDeclarationStatement(ScopedSymbolTable* scope_, const std::string& typeName, const std::string& varName):
+			VariableDeclarationStatement(scope_, typeName, varName, nullptr) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
@@ -266,24 +310,24 @@ namespace AST {
 				initialAssignment->print(subIndent, true);
 		}
 
-		inline virtual void visit(SymbolTable& symbols) const {
-			if(!symbols.lookup(typeName))
+		inline virtual void visit() const {
+			if(!scope->lookupRecursive(typeName))
 				throw std::runtime_error("Unknown typename \"" + typeName + "\" in declaration of \"" + varName + "\"");
-			if(symbols.lookup(varName))
+			if(scope->lookup(varName))
 				throw std::runtime_error("Redeclaration of symbol \"" + varName + "\" in variable declaration");
 
-			symbols.declare(new Symbol(Symbol::Category::VARIABLE, varName, typeName));
+			scope->declare(new Symbol(Symbol::Category::VARIABLE, varName, typeName));
 
 			if(initialAssignment)
-				initialAssignment->visit(symbols);
+				initialAssignment->visit();
 		}
 	};
 
 	struct ExpressionStatement : public StatementNode {
 		const ExpressionNode* expr;
 
-		inline ExpressionStatement(const ExpressionNode* expr):
-			StatementNode(Node::Type::EXPRESSION_STATEMENT),
+		inline ExpressionStatement(ScopedSymbolTable* scope_, const ExpressionNode* expr):
+			StatementNode(scope_, Node::Type::EXPRESSION_STATEMENT),
 			expr(expr) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -296,16 +340,16 @@ namespace AST {
 			expr->print(subIndent, true);
 		}
 
-		inline virtual void visit(SymbolTable& symbols) const {
-			expr->visit(symbols);
+		inline virtual void visit() const {
+			expr->visit();
 		}
 	};
 
 	struct StatementList : public StatementNode {
 		std::vector<const StatementNode*> statements;
 
-		inline StatementList(const std::vector<const StatementNode*>& statements):
-			StatementNode(Node::Type::STATEMENT_LIST),
+		inline StatementList(ScopedSymbolTable* scope_, const std::vector<const StatementNode*>& statements):
+			StatementNode(scope_, Node::Type::STATEMENT_LIST),
 			statements(statements) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -319,17 +363,17 @@ namespace AST {
 				statement->print(subIndent, statement == statements.back());
 		}
 
-		inline virtual void visit(SymbolTable& symbols) const {
+		inline virtual void visit() const {
 			for(const StatementNode* statement : statements)
-				statement->visit(symbols);
+				statement->visit();
 		}
 	};
 
 	struct ReturnStatement : public StatementNode {
 		const ExpressionNode* expr;
 
-		inline ReturnStatement(const ExpressionNode* expr):
-			StatementNode(Node::Type::RETURN_STATEMENT),
+		inline ReturnStatement(ScopedSymbolTable* scope_, const ExpressionNode* expr):
+			StatementNode(scope_, Node::Type::RETURN_STATEMENT),
 			expr(expr) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -342,8 +386,8 @@ namespace AST {
 			expr->print(subIndent, true);
 		}
 
-		inline virtual void visit(SymbolTable& symbols) const {
-			expr->visit(symbols);
+		inline virtual void visit() const {
+			expr->visit();
 		}
 	};
 
@@ -351,8 +395,8 @@ namespace AST {
 		const ExpressionNode* condition;
 		const StatementNode* body;
 
-		inline IfStatement(const ExpressionNode* condition, const StatementNode* body):
-			StatementNode(Node::Type::IF_STATEMENT),
+		inline IfStatement(ScopedSymbolTable* scope_, const ExpressionNode* condition, const StatementNode* body):
+			StatementNode(scope_, Node::Type::IF_STATEMENT),
 			condition(condition), body(body) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -365,9 +409,9 @@ namespace AST {
 			body->print(subIndent, true);
 		}
 
-		inline virtual void visit(SymbolTable& symbols) const {
-			condition->visit(symbols);
-			body->visit(symbols);
+		inline virtual void visit() const {
+			condition->visit();
+			body->visit();
 		}
 	};
 
@@ -375,8 +419,8 @@ namespace AST {
 		const ExpressionNode* condition;
 		const StatementNode* body;
 
-		inline WhileStatement(const ExpressionNode* condition, const StatementNode* body):
-			StatementNode(Node::Type::WHILE_STATEMENT),
+		inline WhileStatement(ScopedSymbolTable* scope_, const ExpressionNode* condition, const StatementNode* body):
+			StatementNode(scope_, Node::Type::WHILE_STATEMENT),
 			condition(condition), body(body) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -389,20 +433,25 @@ namespace AST {
 			body->print(subIndent, true);
 		}
 
-		inline virtual void visit(SymbolTable& symbols) const {
-			condition->visit(symbols);
-			body->visit(symbols);
+		inline virtual void visit() const {
+			condition->visit();
+			body->visit();
 		}
 	};
 
-	struct ArgumentsNode {
+	struct FunctionDeclarationStatement : public StatementNode {
 		struct Argument { std::string type, name; };
+
+		std::string typeName;
+		std::string functionName;
 		std::vector<Argument> args;
+		const StatementNode* body;
 
-		inline ArgumentsNode(const std::vector<Argument>& args):
-			args(args) {}
-
-		inline void print(const std::string& indent, const bool isLast) const {
+		inline FunctionDeclarationStatement(ScopedSymbolTable* scope_, const std::string& typeName, const std::string& functionName, const std::vector<Argument>& args, const StatementNode* body):
+			StatementNode(scope_, Node::Type::FUNCTION_DECLARATION_STATEMENT),
+			typeName(typeName), functionName(functionName), args(args), body(body) {}
+		
+		inline void printArgs(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
 			std::cout << RBRANCH << "    ArgumentList " << "\n";
 
@@ -418,17 +467,6 @@ namespace AST {
 				std::cout << subIndent << (i==args.size()-1 ? LBRANCH : VBRANCH) << args[i].name << "    Identifier " << "\n";
 			}
 		}
-	};
-
-	struct FunctionDeclarationStatement : public StatementNode {
-		std::string typeName;
-		std::string functionName;
-		const ArgumentsNode* args;
-		const StatementNode* body;
-
-		inline FunctionDeclarationStatement(const std::string& typeName, const std::string& functionName, const ArgumentsNode* args, const StatementNode* body):
-			StatementNode(Node::Type::FUNCTION_DECLARATION_STATEMENT),
-			typeName(typeName), functionName(functionName), args(args), body(body) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
@@ -438,37 +476,23 @@ namespace AST {
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
 			std::cout << subIndent << VBRANCH << typeName << "    Typename " << "\n";
 			std::cout << subIndent << VBRANCH << functionName << "    Identifier " << "\n";
-			args->print(subIndent, false);
+
+			printArgs(subIndent, false);
 			body->print(subIndent, true);
 		}
 
-		inline virtual void visit(SymbolTable& symbols) const {
-			if(!symbols.lookup(typeName))
+		inline virtual void visit() const {
+			if(!scope->lookupRecursive(typeName))
 				throw std::runtime_error("Error declaring function: Unknown return type \"" + typeName + "\"");
-			if(symbols.lookup(functionName))
+			if(scope->lookup(functionName))
 				throw std::runtime_error("Error declaring function: Redeclaration of symbol \"" + functionName + "\"");
-			
-			symbols.declare(new Symbol(Symbol::Category::FUNCTION, functionName, "_userFunction"));
-			
-			body->visit(symbols);
+
+			scope->parent->declare(new Symbol(Symbol::Category::FUNCTION, functionName, this));
+
+			for(const Argument& arg : args)
+				scope->declare(new Symbol(Symbol::Category::VARIABLE, arg.name, arg.type));
+
+			body->visit();
 		}
 	};
-
-	// // Program:
-	// struct Program : public Node {
-	// 	std::vector<StatementNode*> statements;
-
-	// 	inline Program(const std::vector<StatementNode*>& statements): statements(statements) {}
-
-	// 	inline virtual void print(const std::string& indent, const bool isLast) const {
-	// 		std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
-
-	// 		std::cout << RBRANCH << "    Program " << span() << "\n";
-
-	// 		const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-
-	// 		for(StatementNode* statement : statements)
-	// 			statement->print(subIndent, statement == statements.back());
-	// 	}
-	// };
 };

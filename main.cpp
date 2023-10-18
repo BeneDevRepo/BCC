@@ -2,18 +2,18 @@
 
 #include "Lexer.hpp"
 #include "Parser.hpp"
-#include "SymbolTable.hpp"
+#include "ScopedSymbolTable.hpp"
 #include "Interpreter.hpp"
 
 
 constexpr const char *const code = R"(
-	float f(float x) {
-		float x = 7;
-		if(x)
-			return (x + 1) * x;
+	float f(int x) {
+		if(x==0) return 1;
+		if(x==1) return 1;
+		return f(x - 1) + f(x - 2);
 	}
 
-	float b = f(0);
+	float b = f(3);
 )";
 
 void run() {
@@ -30,17 +30,23 @@ void run() {
 
 	std::cout << "\nReconstructed Source:\n" << tree->toString(0) << "\n\n";
 
-	const AST::Node* ast = tree->ast();
+	ScopedSymbolTable globalScope("Global Scope");
+	globalScope.declare(new Symbol(Symbol::Category::TYPE, "void", "__VOID__"));
+	globalScope.declare(new Symbol(Symbol::Category::TYPE, "bool", "__BOOL__"));
+	globalScope.declare(new Symbol(Symbol::Category::TYPE, "int", "__INT__"));
+	globalScope.declare(new Symbol(Symbol::Category::TYPE, "float", "__FLOAT__"));
+	globalScope.declare(new Symbol(Symbol::Category::TYPE, "string", "__STRING__"));
+
+	const AST::Node* ast = tree->ast(&globalScope);
 
 	std::cout << "AST: " << ast << "\n";
 	ast->print("", true);
 	std::cout << "\n";
 
-	SymbolTable symbols;
-	ast->visit(symbols);
-	symbols.print();
+	ast->visit();
+	globalScope.print();
 
-	Interpreter interpreter(ast, symbols);
+	Interpreter interpreter(ast);
 	std::cout << "\nInterpreting:\n";
 	interpreter.run();
 }
