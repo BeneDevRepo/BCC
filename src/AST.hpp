@@ -132,13 +132,12 @@ namespace AST {
 			COMP_EQ, COMP_NE, COMP_GT, COMP_LT, COMP_GE, COMP_LE,
 		};
 		const ExpressionNode *a;
-		Operation op;
-		std::string opString; // operation
+		Operation op; // operation
 		const ExpressionNode *b;
 
 		inline BinaryExpressionNode(ScopedSymbolTable* scope_, const ExpressionNode* a, const std::string& op_, const ExpressionNode* b):
 			ExpressionNode(scope_, Node::Type::BINARY_EXPRESSION),
-			a(a), opString(op_), b(b) {
+			a(a), b(b) {
 			if(op_ == "+") op = Operation::PLUS;
 			else if(op_ == "-") op = Operation::MINUS;
 			else if(op_ == "*") op = Operation::MUL;
@@ -152,9 +151,25 @@ namespace AST {
 			else throw std::runtime_error("Invalid binary operator");
 		}
 
+		inline std::string opString() const {
+			switch(op) {
+				case Operation::PLUS: return "+";
+				case Operation::MINUS: return "-";
+				case Operation::MUL: return "*";
+				case Operation::DIV: return "/";
+				case Operation::COMP_EQ: return "==";
+				case Operation::COMP_NE: return "!=";
+				case Operation::COMP_GT: return ">";
+				case Operation::COMP_LT: return "<";
+				case Operation::COMP_GE: return ">=";
+				case Operation::COMP_LE: return "<=";
+			}
+			throw std::runtime_error("Invalid binary operator enum value");
+		}
+
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
-			std::cout << opString;
+			std::cout << opString();
 			std::cout << "    BinaryExpression " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "

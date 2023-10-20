@@ -228,7 +228,7 @@ public:
 		
 		Value res = Value::Void();
 		
-		Value a = visit(scope, node->a);
+		const Value a = visit(scope, node->a);
 
 		switch(node->op) {
 			case AST::UnaryExpressionNode::Operation::PLUS:
@@ -248,15 +248,15 @@ public:
 	}
 
 	Value visitBinaryExpression(ScopedVariableTable* scope, const AST::BinaryExpressionNode* node) {
-		std::cout << indent << "<BinaryExpression " + node->opString + ">:\n";
+		std::cout << indent << "<BinaryExpression " + node->opString() + ">:\n";
 
 		Value res = Value::Void();
 
 		indent += "  ";
 
-		Value a = visit(scope, node->a);
+		const Value a = visit(scope, node->a);
 
-		Value b = visit(scope, node->b);
+		const Value b = visit(scope, node->b);
 
 		switch(node->op) {
 			case AST::BinaryExpressionNode::Operation::PLUS:
@@ -339,11 +339,11 @@ public:
 			const AST::FunctionDeclarationStatement::Argument& param = targetFunction->args[i];
 			// const std::string& paramType = param.type;
 			const std::string& paramName = param.name;
-			Value val = visit(scope, node->args[i]);
+			const Value val = visit(scope, node->args[i]);
 			localScope->set(paramName, val);
 		}
 
-		Value out = visit(localScope, targetFunction->body);
+		const Value out = visit(localScope, targetFunction->body);
 
 		indent = indent.substr(0, indent.size() - 2);
 
@@ -381,7 +381,7 @@ public:
 
 		indent += "  ";
 
-		Value out = visit(scope, node->expr);
+		const Value out = visit(scope, node->expr);
 
 		indent = indent.substr(0, indent.size() - 2);
 
