@@ -137,7 +137,6 @@ class Interpreter {
 private:
 	const AST::Node* ast;
 	ScopedVariableTable globalVariables;
-	// std::string ret;
 	std::string indent;
 
 public:
@@ -145,12 +144,20 @@ public:
 	}
 
 	inline void run() {
-		visit(&globalVariables, ast);
+		switch(ast->baseType()) {
+		case AST::Node::BaseType::EXPRESSION:
+			visit(&globalVariables, dynamic_cast<const AST::ExpressionNode*>(ast));
+			break;
+
+		case AST::Node::BaseType::STATEMENT:
+			visit(&globalVariables, dynamic_cast<const AST::StatementNode*>(ast));
+			break;
+		}
 
 		globalVariables.print(indent);
 	}
 
-	inline Value visit(ScopedVariableTable* scope, const AST::Node* node) {
+	inline Value visit(ScopedVariableTable* scope, const AST::ExpressionNode* node) {
 		switch(node->type()) {
 			case AST::Node::Type::LITERAL_EXPRESSION:
 				return visitLiteralExpression(scope, dynamic_cast<const AST::LiteralNode*>(node));
@@ -162,7 +169,11 @@ public:
 				return visitBinaryExpression(scope, dynamic_cast<const AST::BinaryExpressionNode*>(node));
 			case AST::Node::Type::CALL_EXPRESSION:
 				return visitFunctionCall(scope, dynamic_cast<const AST::FunctionCallExpressionNode*>(node));
+		}
+	}
 
+	inline Value visit(ScopedVariableTable* scope, const AST::StatementNode* node) {
+		switch(node->type()) {
 			case AST::Node::Type::EXPRESSION_STATEMENT:
 				return visit(scope, dynamic_cast<const AST::ExpressionStatement*>(node)->expr);
 			case AST::Node::Type::STATEMENT_LIST:

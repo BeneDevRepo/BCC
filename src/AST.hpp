@@ -27,6 +27,10 @@ namespace AST {
 
 	struct Node {
 	public:
+		enum class BaseType : uint8_t {
+			EXPRESSION, STATEMENT
+		};
+
 		enum class Type : uint8_t {
 			LITERAL_EXPRESSION, VARIABLE_EXPRESSION, UNARY_EXPRESSION, BINARY_EXPRESSION, CALL_EXPRESSION,
 
@@ -38,14 +42,16 @@ namespace AST {
 		ScopedSymbolTable* scope;
 
 	private:
+		BaseType baseType_;
 		Type type_;
 		Span span_;
 
 	public:
-		inline Node(ScopedSymbolTable* scope, const Type type): scope(scope), type_(type) {}
+		inline Node(ScopedSymbolTable* scope, const BaseType baseType, const Type type): scope(scope), baseType_(baseType), type_(type) {}
 		inline virtual ~Node() {}
 	
 	public:
+		inline BaseType baseType() const { return baseType_; }
 		inline Type type() const { return type_; }
 		inline Span span() const { return span_; }
 		inline const ScopedSymbolTable& getScope() const { return *scope; }
@@ -57,11 +63,11 @@ namespace AST {
 
 
 	struct ExpressionNode : public Node {
-		inline ExpressionNode(ScopedSymbolTable* scope_, const Node::Type type): Node(scope_, type) {}
+		inline ExpressionNode(ScopedSymbolTable* scope_, const Node::Type type): Node(scope_, BaseType::EXPRESSION, type) {}
 	};
 
 	struct StatementNode : public Node {
-		inline StatementNode(ScopedSymbolTable* scope_, const Node::Type type): Node(scope_, type) {}
+		inline StatementNode(ScopedSymbolTable* scope_, const Node::Type type): Node(scope_, BaseType::STATEMENT, type) {}
 	};
 
 

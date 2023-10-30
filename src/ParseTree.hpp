@@ -28,6 +28,10 @@ namespace ParseTree {
 
 	struct Node {
 	public:
+		enum class BaseType : uint8_t {
+			EXPRESSION, STATEMENT, PROGRAM
+		};
+	
 		enum class Type : uint8_t {
 			PROGRAM,
 
@@ -38,13 +42,15 @@ namespace ParseTree {
 		};
 
 	private:
+		BaseType baseType_;
 		Type type_;
 
 	public:
-		inline Node(const Type type): type_(type) {}
+		inline Node(const BaseType baseType, const Type type): baseType_(baseType), type_(type) {}
 		inline virtual ~Node() {}
 
 	public:
+		inline BaseType baseType() const { return baseType_; }
 		inline Type type() const { return type_; }
 	
 	public:
@@ -55,12 +61,12 @@ namespace ParseTree {
 
 
 	struct ExpressionNode : public Node {
-		inline ExpressionNode(const Type type): Node(type) {}
+		inline ExpressionNode(const Type type): Node(BaseType::EXPRESSION, type) {}
 		inline virtual const AST::ExpressionNode* ast(ScopedSymbolTable* scope) const = 0;
 	};
 
 	struct StatementNode : public Node {
-		inline StatementNode(const Type type): Node(type) {}
+		inline StatementNode(const Type type): Node(BaseType::STATEMENT, type) {}
 		inline virtual const AST::StatementNode* ast(ScopedSymbolTable* scope) const = 0;
 	};
 
@@ -549,7 +555,7 @@ namespace ParseTree {
 		std::vector<const StatementNode*> statements;
 
 		inline Program(const std::vector<const StatementNode*>& statements):
-			Node(Node::Type::PROGRAM),
+			Node(Node::BaseType::PROGRAM, Node::Type::PROGRAM),
 			statements(statements) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
