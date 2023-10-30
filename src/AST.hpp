@@ -31,28 +31,19 @@ namespace AST {
 			EXPRESSION, STATEMENT
 		};
 
-		enum class Type : uint8_t {
-			LITERAL_EXPRESSION, VARIABLE_EXPRESSION, UNARY_EXPRESSION, BINARY_EXPRESSION, CALL_EXPRESSION,
-
-			EXPRESSION_STATEMENT, STATEMENT_LIST, RETURN_STATEMENT,
-			IF_STATEMENT, WHILE_STATEMENT, FUNCTION_DECLARATION_STATEMENT, VARIABLE_DECLARATION_STATEMENT, VARIABLE_ASSIGNMENT_STATEMENT,
-		};
-
 	protected:
 		ScopedSymbolTable* scope;
 
 	private:
 		BaseType baseType_;
-		Type type_;
 		Span span_;
 
 	public:
-		inline Node(ScopedSymbolTable* scope, const BaseType baseType, const Type type): scope(scope), baseType_(baseType), type_(type) {}
+		inline Node(ScopedSymbolTable* scope, const BaseType baseType): scope(scope), baseType_(baseType) {}
 		inline virtual ~Node() {}
 	
 	public:
 		inline BaseType baseType() const { return baseType_; }
-		inline Type type() const { return type_; }
 		inline Span span() const { return span_; }
 		inline const ScopedSymbolTable& getScope() const { return *scope; }
 
@@ -63,11 +54,32 @@ namespace AST {
 
 
 	struct ExpressionNode : public Node {
-		inline ExpressionNode(ScopedSymbolTable* scope_, const Node::Type type): Node(scope_, BaseType::EXPRESSION, type) {}
+	public:
+		enum class Type : uint8_t {
+			LITERAL_EXPRESSION, VARIABLE_EXPRESSION, UNARY_EXPRESSION, BINARY_EXPRESSION, CALL_EXPRESSION,
+		};
+
+	private:
+		Type type_;
+	
+	public:
+		inline ExpressionNode(ScopedSymbolTable* scope_, const Type type): Node(scope_, BaseType::EXPRESSION), type_(type) {}
+		inline Type type() const { return type_; }
 	};
 
 	struct StatementNode : public Node {
-		inline StatementNode(ScopedSymbolTable* scope_, const Node::Type type): Node(scope_, BaseType::STATEMENT, type) {}
+	public:
+		enum class Type : uint8_t {
+			EXPRESSION_STATEMENT, STATEMENT_LIST, RETURN_STATEMENT,
+			IF_STATEMENT, WHILE_STATEMENT, FUNCTION_DECLARATION_STATEMENT, VARIABLE_DECLARATION_STATEMENT, VARIABLE_ASSIGNMENT_STATEMENT,
+		};
+
+	private:
+		Type type_;
+	
+	public:
+		inline StatementNode(ScopedSymbolTable* scope_, const Type type): Node(scope_, BaseType::STATEMENT), type_(type) {}
+		inline Type type() const { return type_; }
 	};
 
 
@@ -77,7 +89,7 @@ namespace AST {
 		std::vector<const ExpressionNode*> args; // function call arguments
 
 		inline FunctionCallExpressionNode(ScopedSymbolTable* scope_, const std::string& name, const std::vector<const ExpressionNode*>& args):
-			ExpressionNode(scope_, Node::Type::CALL_EXPRESSION),
+			ExpressionNode(scope_, Type::CALL_EXPRESSION),
 			name(name), args(args) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -110,7 +122,7 @@ namespace AST {
 		const ExpressionNode *a;
 
 		inline UnaryExpressionNode(ScopedSymbolTable* scope_, const std::string& op_, const ExpressionNode* a):
-			ExpressionNode(scope_, Node::Type::UNARY_EXPRESSION),
+			ExpressionNode(scope_, Type::UNARY_EXPRESSION),
 			opString(op_), a(a) {
 			if(op_ == "+") op = Operation::PLUS;
 			else if(op_ == "-") op = Operation::MINUS;
@@ -142,7 +154,7 @@ namespace AST {
 		const ExpressionNode *b;
 
 		inline BinaryExpressionNode(ScopedSymbolTable* scope_, const ExpressionNode* a, const std::string& op_, const ExpressionNode* b):
-			ExpressionNode(scope_, Node::Type::BINARY_EXPRESSION),
+			ExpressionNode(scope_, Type::BINARY_EXPRESSION),
 			a(a), b(b) {
 			if(op_ == "+") op = Operation::PLUS;
 			else if(op_ == "-") op = Operation::MINUS;
@@ -193,7 +205,7 @@ namespace AST {
 		std::string name;
 
 		inline IdentifierNode(ScopedSymbolTable* scope_, const std::string& name):
-			ExpressionNode(scope_, Node::Type::VARIABLE_EXPRESSION),
+			ExpressionNode(scope_, Type::VARIABLE_EXPRESSION),
 			name(name) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -208,11 +220,11 @@ namespace AST {
 	};
 
 	struct LiteralNode : public ExpressionNode {
-		enum class Type : uint8_t {
+		enum class LiteralType : uint8_t {
 			BOOL, INT, FLOAT, STRING
 		} type;
-		inline LiteralNode(ScopedSymbolTable* scope_, const Type type):
-			ExpressionNode(scope_, Node::Type::LITERAL_EXPRESSION),
+		inline LiteralNode(ScopedSymbolTable* scope_, const LiteralType type):
+			ExpressionNode(scope_, Type::LITERAL_EXPRESSION),
 			type(type) {}
 	};
 
@@ -220,7 +232,7 @@ namespace AST {
 		bool value;
 
 		inline BoolLiteralNode(ScopedSymbolTable* scope_, const bool value):
-			LiteralNode(scope_, LiteralNode::Type::BOOL),
+			LiteralNode(scope_, LiteralNode::LiteralType::BOOL),
 			value(value) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -236,7 +248,7 @@ namespace AST {
 		int value;
 
 		inline IntLiteralNode(ScopedSymbolTable* scope_, const int value):
-			LiteralNode(scope_, LiteralNode::Type::INT),
+			LiteralNode(scope_, LiteralNode::LiteralType::INT),
 			value(value) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -252,7 +264,7 @@ namespace AST {
 		float value;
 
 		inline FloatLiteralNode(ScopedSymbolTable* scope_, const float value):
-			LiteralNode(scope_, LiteralNode::Type::FLOAT),
+			LiteralNode(scope_, LiteralNode::LiteralType::FLOAT),
 			value(value) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -268,7 +280,7 @@ namespace AST {
 		std::string value;
 
 		inline StringLiteralNode(ScopedSymbolTable* scope_, const std::string& value):
-			LiteralNode(scope_, LiteralNode::Type::STRING),
+			LiteralNode(scope_, LiteralNode::LiteralType::STRING),
 			value(value) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -287,7 +299,7 @@ namespace AST {
 		const ExpressionNode *expr;
 
 		inline VariableAssignmentStatement(ScopedSymbolTable* scope_, const std::string& varName, const ExpressionNode* expr):
-			StatementNode(scope_, Node::Type::VARIABLE_ASSIGNMENT_STATEMENT),
+			StatementNode(scope_, Type::VARIABLE_ASSIGNMENT_STATEMENT),
 			varName(varName), expr(expr) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -314,7 +326,7 @@ namespace AST {
 		const VariableAssignmentStatement* initialAssignment;
 
 		inline VariableDeclarationStatement(ScopedSymbolTable* scope_, const std::string& typeName, const std::string& varName, const VariableAssignmentStatement* initialAssignment):
-			StatementNode(scope_, Node::Type::VARIABLE_DECLARATION_STATEMENT),
+			StatementNode(scope_, Type::VARIABLE_DECLARATION_STATEMENT),
 			typeName(typeName), varName(varName), initialAssignment(initialAssignment) {}
 		inline VariableDeclarationStatement(ScopedSymbolTable* scope_, const std::string& typeName, const std::string& varName):
 			VariableDeclarationStatement(scope_, typeName, varName, nullptr) {}
@@ -348,7 +360,7 @@ namespace AST {
 		const ExpressionNode* expr;
 
 		inline ExpressionStatement(ScopedSymbolTable* scope_, const ExpressionNode* expr):
-			StatementNode(scope_, Node::Type::EXPRESSION_STATEMENT),
+			StatementNode(scope_, Type::EXPRESSION_STATEMENT),
 			expr(expr) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -370,7 +382,7 @@ namespace AST {
 		std::vector<const StatementNode*> statements;
 
 		inline StatementList(ScopedSymbolTable* scope_, const std::vector<const StatementNode*>& statements):
-			StatementNode(scope_, Node::Type::STATEMENT_LIST),
+			StatementNode(scope_, Type::STATEMENT_LIST),
 			statements(statements) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -394,7 +406,7 @@ namespace AST {
 		const ExpressionNode* expr;
 
 		inline ReturnStatement(ScopedSymbolTable* scope_, const ExpressionNode* expr):
-			StatementNode(scope_, Node::Type::RETURN_STATEMENT),
+			StatementNode(scope_, Type::RETURN_STATEMENT),
 			expr(expr) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -417,7 +429,7 @@ namespace AST {
 		const StatementNode* body;
 
 		inline IfStatement(ScopedSymbolTable* scope_, const ExpressionNode* condition, const StatementNode* body):
-			StatementNode(scope_, Node::Type::IF_STATEMENT),
+			StatementNode(scope_, Type::IF_STATEMENT),
 			condition(condition), body(body) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -441,7 +453,7 @@ namespace AST {
 		const StatementNode* body;
 
 		inline WhileStatement(ScopedSymbolTable* scope_, const ExpressionNode* condition, const StatementNode* body):
-			StatementNode(scope_, Node::Type::WHILE_STATEMENT),
+			StatementNode(scope_, Type::WHILE_STATEMENT),
 			condition(condition), body(body) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -469,7 +481,7 @@ namespace AST {
 		const StatementNode* body;
 
 		inline FunctionDeclarationStatement(ScopedSymbolTable* scope_, const std::string& typeName, const std::string& functionName, const std::vector<Argument>& args, const StatementNode* body):
-			StatementNode(scope_, Node::Type::FUNCTION_DECLARATION_STATEMENT),
+			StatementNode(scope_, Type::FUNCTION_DECLARATION_STATEMENT),
 			typeName(typeName), functionName(functionName), args(args), body(body) {}
 		
 		inline void printArgs(const std::string& indent, const bool isLast) const {

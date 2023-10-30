@@ -2,6 +2,7 @@
 
 #include "Lexer.hpp"
 #include "Parser.hpp"
+#include "SemanticAnalyzer.hpp"
 #include "ScopedSymbolTable.hpp"
 #include "Interpreter.hpp"
 
@@ -37,7 +38,8 @@ void run() {
 	globalScope.declare(new Symbol(Symbol::Category::TYPE, "float", "__FLOAT__"));
 	globalScope.declare(new Symbol(Symbol::Category::TYPE, "string", "__STRING__"));
 
-	const AST::Node* ast = tree->ast(&globalScope);
+	// const AST::Node* ast = tree->ast(&globalScope);
+	const AST::Node* ast = SemanticAnalyzer::visit(tree, &globalScope);
 
 	std::cout << "AST: " << ast << "\n";
 	ast->print("", true);

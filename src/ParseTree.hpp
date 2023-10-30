@@ -31,27 +31,16 @@ namespace ParseTree {
 		enum class BaseType : uint8_t {
 			EXPRESSION, STATEMENT, PROGRAM
 		};
-	
-		enum class Type : uint8_t {
-			PROGRAM,
-
-			LITERAL_EXPRESSION, VARIABLE_EXPRESSION, UNARY_EXPRESSION, BINARY_EXPRESSION, CALL_EXPRESSION, GROUP_EXPRESSION,
-
-			EXPRESSION_STATEMENT, BLOCK_STATEMENT, RETURN_STATEMENT,
-			IF_STATEMENT, WHILE_STATEMENT, FUNCTION_DECLARATION, VARIABLE_DECLARATION, VARIABLE_ASSIGNMENT,
-		};
 
 	private:
 		BaseType baseType_;
-		Type type_;
 
 	public:
-		inline Node(const BaseType baseType, const Type type): baseType_(baseType), type_(type) {}
+		inline Node(const BaseType baseType): baseType_(baseType) {}
 		inline virtual ~Node() {}
 
 	public:
 		inline BaseType baseType() const { return baseType_; }
-		inline Type type() const { return type_; }
 	
 	public:
 		inline virtual void print(const std::string& indent = "", const bool isLast = true) const = 0;
@@ -61,13 +50,34 @@ namespace ParseTree {
 
 
 	struct ExpressionNode : public Node {
-		inline ExpressionNode(const Type type): Node(BaseType::EXPRESSION, type) {}
-		inline virtual const AST::ExpressionNode* ast(ScopedSymbolTable* scope) const = 0;
+	public:
+		enum class Type : uint8_t {
+			LITERAL_EXPRESSION, VARIABLE_EXPRESSION, UNARY_EXPRESSION, BINARY_EXPRESSION, CALL_EXPRESSION, GROUP_EXPRESSION,
+		};
+
+	private:
+		Type type_;
+
+	public:
+		inline ExpressionNode(const Type type): Node(BaseType::EXPRESSION), type_(type) {}
+		inline Type type() const { return type_; }
 	};
 
+
 	struct StatementNode : public Node {
-		inline StatementNode(const Type type): Node(BaseType::STATEMENT, type) {}
-		inline virtual const AST::StatementNode* ast(ScopedSymbolTable* scope) const = 0;
+	public:
+		enum class Type : uint8_t {
+			EXPRESSION_STATEMENT, BLOCK_STATEMENT, RETURN_STATEMENT,
+			IF_STATEMENT, WHILE_STATEMENT, FUNCTION_DECLARATION, VARIABLE_DECLARATION,
+			// VARIABLE_ASSIGNMENT, // TODO: implement assignment operator
+		};
+
+	private:
+		Type type_;
+
+	public:
+		inline StatementNode(const Type type): Node(BaseType::STATEMENT), type_(type) {}
+		inline Type type() const { return type_; }
 	};
 
 
@@ -80,7 +90,7 @@ namespace ParseTree {
 		Token closeParen;
 
 		inline FunctionCallExpressionNode(const Token& name, const Token& openParen, const std::vector<const ExpressionNode*>& args, const std::vector<Token>& commas, const Token& closeParen):
-			ExpressionNode(Node::Type::CALL_EXPRESSION),
+			ExpressionNode(Type::CALL_EXPRESSION),
 			name(name), openParen(openParen), args(args), commas(commas), closeParen(closeParen) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -106,13 +116,6 @@ namespace ParseTree {
 			res += closeParen.value;
 			return res;
 		}
-
-		inline virtual const AST::ExpressionNode* ast(ScopedSymbolTable* scope) const {
-			std::vector<const AST::ExpressionNode*> astArgs;
-			for(const ExpressionNode* arg : args)
-				astArgs.push_back(arg->ast(scope));
-			return new AST::FunctionCallExpressionNode(scope, name.value, astArgs);
-		}
 	};
 
 	struct GroupExpressionNode : public ExpressionNode {
@@ -121,7 +124,7 @@ namespace ParseTree {
 		Token closeParen;
 
 		inline GroupExpressionNode(const Token& openParen, const ExpressionNode* a, const Token& closeParen):
-			ExpressionNode(Node::Type::GROUP_EXPRESSION),
+			ExpressionNode(Type::GROUP_EXPRESSION),
 			openParen(openParen), a(a), closeParen(closeParen) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -138,10 +141,6 @@ namespace ParseTree {
 		inline virtual Span span() const { return Span(openParen.span, closeParen.span); }
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + openParen.value + a->toString(0) + closeParen.value; }
-
-		inline virtual const AST::ExpressionNode* ast(ScopedSymbolTable* scope) const {
-			return a->ast(scope);
-		}
 	};
 
 	struct UnaryExpressionNode : public ExpressionNode {
@@ -149,7 +148,7 @@ namespace ParseTree {
 		const ExpressionNode *a;
 
 		inline UnaryExpressionNode(const Token& op, const ExpressionNode* a):
-			ExpressionNode(Node::Type::UNARY_EXPRESSION),
+			ExpressionNode(Type::UNARY_EXPRESSION),
 			op(op), a(a) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -164,10 +163,6 @@ namespace ParseTree {
 		inline virtual Span span() const { return Span(a->span(), op.span); }
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + op.value + a->toString(0); }
-
-		inline virtual const AST::ExpressionNode* ast(ScopedSymbolTable* scope) const {
-			return new AST::UnaryExpressionNode(scope, op.value, a->ast(scope));
-		}
 	};
 
 	struct BinaryExpressionNode : public ExpressionNode {
@@ -176,7 +171,7 @@ namespace ParseTree {
 		const ExpressionNode *b;
 
 		inline BinaryExpressionNode(const ExpressionNode* a, const Token& op, const ExpressionNode* b):
-			ExpressionNode(Node::Type::BINARY_EXPRESSION),
+			ExpressionNode(Type::BINARY_EXPRESSION),
 			a(a), op(op), b(b) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -192,17 +187,13 @@ namespace ParseTree {
 		inline virtual Span span() const { return Span(a->span(), b->span()); }
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + a->toString(0) + " " + op.value + " " + b->toString(0); }
-
-		inline virtual const AST::ExpressionNode* ast(ScopedSymbolTable* scope) const {
-			return new AST::BinaryExpressionNode(scope, a->ast(scope), op.value, b->ast(scope));
-		}
 	};
 
 	struct IdentifierNode : public ExpressionNode {
 		Token name;
 
 		inline IdentifierNode(const Token& name):
-			ExpressionNode(Node::Type::VARIABLE_EXPRESSION),
+			ExpressionNode(Type::VARIABLE_EXPRESSION),
 			name(name) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -213,17 +204,13 @@ namespace ParseTree {
 		inline virtual Span span() const { return name.span; }
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + name.value; }
-
-		inline virtual const AST::ExpressionNode* ast(ScopedSymbolTable* scope) const {
-			return new AST::IdentifierNode(scope, name.value);
-		}
 	};
 
 	struct LiteralNode : public ExpressionNode {
 		Token value;
 
 		inline LiteralNode(const Token& value):
-			ExpressionNode(Node::Type::LITERAL_EXPRESSION),
+			ExpressionNode(Type::LITERAL_EXPRESSION),
 			value(value) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -234,14 +221,6 @@ namespace ParseTree {
 		inline virtual Span span() const { return value.span; }
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + value.value; }
-
-		inline virtual const AST::LiteralNode* ast(ScopedSymbolTable* scope) const {
-			switch(value.type) {
-				case Token::Type::INT_LITERAL:
-					return new AST::IntLiteralNode(scope, std::stoi(value.value));
-			}
-			throw std::runtime_error("Error generating literal AST Node: Token is not a known literal type");
-		}
 	};
 
 
@@ -254,7 +233,7 @@ namespace ParseTree {
 		Token semicolon;
 
 		inline VariableDeclarationStatement(const Token& typeName, const Token& varName, const Token& equals, const ExpressionNode* expr, const Token& semicolon):
-			StatementNode(Node::Type::VARIABLE_DECLARATION),
+			StatementNode(Type::VARIABLE_DECLARATION),
 			typeName(typeName), varName(varName), equals(equals), expr(expr), semicolon(semicolon) {}
 		inline VariableDeclarationStatement(const Token& typeName, const Token& varName, const Token& semicolon):
 			VariableDeclarationStatement(typeName, varName, equals, nullptr, semicolon) {}
@@ -279,14 +258,6 @@ namespace ParseTree {
 		inline virtual Span span() const { return Span(typeName.span, semicolon.span); }
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + typeName.value + " " + varName.value + (expr ? (" " + equals.value + " " + expr->toString(0)) : "") + semicolon.value; }
-
-		inline virtual const AST::StatementNode* ast(ScopedSymbolTable* scope) const {
-			if(!expr)
-				return new AST::VariableDeclarationStatement(scope, typeName.value, varName.value);
-
-			const AST::VariableAssignmentStatement* assignment = new AST::VariableAssignmentStatement(scope, varName.value, expr->ast(scope));
-			return new AST::VariableDeclarationStatement(scope, typeName.value, varName.value, assignment);
-		}
 	};
 
 	struct ExpressionStatement : public StatementNode {
@@ -294,7 +265,7 @@ namespace ParseTree {
 		Token semicolon;
 
 		inline ExpressionStatement(const ExpressionNode* expr, const Token& semicolon):
-			StatementNode(Node::Type::EXPRESSION_STATEMENT),
+			StatementNode(Type::EXPRESSION_STATEMENT),
 			expr(expr), semicolon(semicolon) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -314,10 +285,6 @@ namespace ParseTree {
 		inline virtual std::string toString(const size_t indent) const {
 			return expr->toString(indent) + semicolon.value;
 		}
-
-		inline virtual const AST::StatementNode* ast(ScopedSymbolTable* scope) const {
-			return new AST::ExpressionStatement(scope, expr->ast(scope));
-		}
 	};
 
 	struct BlockStatement : public StatementNode {
@@ -327,7 +294,7 @@ namespace ParseTree {
 		mutable bool createScope;
 
 		inline BlockStatement(const Token& openBrace, const std::vector<const StatementNode*>& statements, const Token& closeBrace):
-			StatementNode(Node::Type::BLOCK_STATEMENT),
+			StatementNode(Type::BLOCK_STATEMENT),
 			openBrace(openBrace), statements(statements), closeBrace(closeBrace), createScope(true) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -356,17 +323,6 @@ namespace ParseTree {
 
 			return res;
 		}
-
-		inline virtual const AST::StatementNode* ast(ScopedSymbolTable* scope) const {
-			ScopedSymbolTable* localScope = createScope ? new ScopedSymbolTable("Local Block Scope", scope) : scope;
-
-			std::vector<const AST::StatementNode*> astStatements;
-
-			for(const StatementNode* statement : statements)
-				astStatements.push_back(statement->ast(localScope));
-
-			return new AST::StatementList(localScope, astStatements);
-		}
 	};
 
 	struct ReturnStatement : public StatementNode {
@@ -375,7 +331,7 @@ namespace ParseTree {
 		Token semicolon;
 
 		inline ReturnStatement(const Token& returnToken, const ExpressionNode* expr, const Token& semicolon):
-			StatementNode(Node::Type::RETURN_STATEMENT),
+			StatementNode(Type::RETURN_STATEMENT),
 			returnToken(returnToken), expr(expr), semicolon(semicolon) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -392,10 +348,6 @@ namespace ParseTree {
 		inline virtual Span span() const { return Span(returnToken.span, semicolon.span); }
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + returnToken.value + " " + expr->toString(0) + semicolon.value; }
-
-		inline virtual const AST::StatementNode* ast(ScopedSymbolTable* scope) const {
-			return new AST::ReturnStatement(scope, expr->ast(scope));
-		}
 	};
 
 	struct IfStatement : public StatementNode {
@@ -406,7 +358,7 @@ namespace ParseTree {
 		const StatementNode* body;
 
 		inline IfStatement(const Token& ifToken, const Token& openParen, const ExpressionNode* condition, const Token& closeParen, const StatementNode* body):
-			StatementNode(Node::Type::IF_STATEMENT),
+			StatementNode(Type::IF_STATEMENT),
 			ifToken(ifToken), openParen(openParen), condition(condition), closeParen(closeParen), body(body) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -425,10 +377,6 @@ namespace ParseTree {
 		inline virtual Span span() const { return Span(ifToken.span, body->span()); }
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + ifToken.value + openParen.value + condition->toString(0) + closeParen.value + "\n" + body->toString(indent); }
-
-		inline virtual const AST::StatementNode* ast(ScopedSymbolTable* scope) const {
-			return new AST::IfStatement(scope, condition->ast(scope), body->ast(scope));
-		}
 	};
 
 	struct WhileStatement : public StatementNode {
@@ -439,7 +387,7 @@ namespace ParseTree {
 		const StatementNode* body;
 
 		inline WhileStatement(const Token& whileToken, const Token& openParen, const ExpressionNode* condition, const Token& closeParen, const StatementNode* body):
-			StatementNode(Node::Type::WHILE_STATEMENT),
+			StatementNode(Type::WHILE_STATEMENT),
 			whileToken(whileToken), openParen(openParen), condition(condition), closeParen(closeParen), body(body) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -458,10 +406,6 @@ namespace ParseTree {
 		inline virtual Span span() const { return Span(whileToken.span, body->span()); }
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + whileToken.value + openParen.value + condition->toString(0) + closeParen.value + "\n" + body->toString(indent); }
-
-		inline virtual const AST::StatementNode* ast(ScopedSymbolTable* scope) const {
-			return new AST::WhileStatement(scope, condition->ast(scope), body->ast(scope));
-		}
 	};
 
 	struct ArgumentsNode {
@@ -517,7 +461,7 @@ namespace ParseTree {
 		const StatementNode* body;
 
 		inline FunctionDeclarationStatement(const Token& typeName, const Token& functionName, const Token& openParen, const ArgumentsNode* args, const Token& closeParen, const StatementNode* body):
-			StatementNode(Node::Type::FUNCTION_DECLARATION),
+			StatementNode(Type::FUNCTION_DECLARATION),
 			typeName(typeName), functionName(functionName), openParen(openParen), args(args), closeParen(closeParen), body(body) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -537,17 +481,6 @@ namespace ParseTree {
 		inline virtual Span span() const { return Span(typeName.span, body->span()); }
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + typeName.value + " " + functionName.value + openParen.value + args->toString(0) + closeParen.value + "\n" + body->toString(indent) + "\n"; }
-
-		inline virtual const AST::StatementNode* ast(ScopedSymbolTable* scope) const {
-			ScopedSymbolTable* localScope = new ScopedSymbolTable("Local Function Scope", scope);
-
-			std::vector<AST::FunctionDeclarationStatement::Argument> astArgs;
-
-			for(const auto& arg : args->args)
-				astArgs.push_back({ arg.type.value, arg.name.value });
-
-			return new AST::FunctionDeclarationStatement(localScope, typeName.value, functionName.value, astArgs, body->ast(localScope));
-		}
 	};
 
 	// Program:
@@ -555,7 +488,7 @@ namespace ParseTree {
 		std::vector<const StatementNode*> statements;
 
 		inline Program(const std::vector<const StatementNode*>& statements):
-			Node(Node::BaseType::PROGRAM, Node::Type::PROGRAM),
+			Node(Node::BaseType::PROGRAM),
 			statements(statements) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -578,15 +511,6 @@ namespace ParseTree {
 				res += s->toString(indent) + "\n";
 
 			return res;
-		}
-
-		inline const AST::StatementList* ast(ScopedSymbolTable* scope) const {
-			std::vector<const AST::StatementNode*> astStatements;
-
-			for(const StatementNode* statement : statements)
-				astStatements.push_back(statement->ast(scope));
-			
-			return new AST::StatementList(scope, astStatements);
 		}
 	};
 };

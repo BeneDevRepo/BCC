@@ -212,7 +212,7 @@ public:
 		}
 
 		// Prevent block inside If-Statement from creating an additional Scope
-		if(body->type() == ParseTree::Node::Type::BLOCK_STATEMENT)
+		if(body->type() == ParseTree::StatementNode::Type::BLOCK_STATEMENT)
 			dynamic_cast<const ParseTree::BlockStatement*>(body)->createScope = false;
 
 		tokenProvider.yeetState();
@@ -257,7 +257,7 @@ public:
 		}
 
 		// Prevent block inside While-Statement from creating an additional Scope
-		if(body->type() == ParseTree::Node::Type::BLOCK_STATEMENT)
+		if(body->type() == ParseTree::StatementNode::Type::BLOCK_STATEMENT)
 			dynamic_cast<const ParseTree::BlockStatement*>(body)->createScope = false;
 
 		tokenProvider.yeetState();
@@ -350,7 +350,7 @@ public:
 		}
 
 		// Prevent block inside Function Declaration from creating an additional Scope
-		if(body->type() == ParseTree::Node::Type::BLOCK_STATEMENT)
+		if(body->type() == ParseTree::StatementNode::Type::BLOCK_STATEMENT)
 			dynamic_cast<const ParseTree::BlockStatement*>(body)->createScope = false;
 
 		tokenProvider.yeetState();
@@ -501,6 +501,8 @@ public:
 
 	inline const ParseTree::LiteralNode* literal() {
 		constexpr static auto isLiteralType = [](const Token::Type type) {
+			#pragma clang diagnostic push
+			#pragma clang diagnostic ignored "-Wswitch" // suppress unhandled enumeration warning
 			switch(type) {
 				case Token::Type::BOOL_LITERAL:
 				case Token::Type::INT_LITERAL:
@@ -508,6 +510,7 @@ public:
 				case Token::Type::STRING_LITERAL:
 				return true;
 			}
+			#pragma clang diagnostic pop
 			return false;
 		};
 

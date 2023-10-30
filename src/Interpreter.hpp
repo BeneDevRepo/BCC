@@ -159,59 +159,62 @@ public:
 
 	inline Value visit(ScopedVariableTable* scope, const AST::ExpressionNode* node) {
 		switch(node->type()) {
-			case AST::Node::Type::LITERAL_EXPRESSION:
+			case AST::ExpressionNode::Type::LITERAL_EXPRESSION:
 				return visitLiteralExpression(scope, dynamic_cast<const AST::LiteralNode*>(node));
-			case AST::Node::Type::VARIABLE_EXPRESSION:
+			case AST::ExpressionNode::Type::VARIABLE_EXPRESSION:
 				return visitVariableExpression(scope, dynamic_cast<const AST::IdentifierNode*>(node));
-			case AST::Node::Type::UNARY_EXPRESSION:
+			case AST::ExpressionNode::Type::UNARY_EXPRESSION:
 				return visitUnaryExpression(scope, dynamic_cast<const AST::UnaryExpressionNode*>(node));
-			case AST::Node::Type::BINARY_EXPRESSION:
+			case AST::ExpressionNode::Type::BINARY_EXPRESSION:
 				return visitBinaryExpression(scope, dynamic_cast<const AST::BinaryExpressionNode*>(node));
-			case AST::Node::Type::CALL_EXPRESSION:
+			case AST::ExpressionNode::Type::CALL_EXPRESSION:
 				return visitFunctionCall(scope, dynamic_cast<const AST::FunctionCallExpressionNode*>(node));
 		}
+
+		throw std::runtime_error("Interpreter::visit(ExpressionNode): invalid expression Node type");
 	}
 
 	inline Value visit(ScopedVariableTable* scope, const AST::StatementNode* node) {
 		switch(node->type()) {
-			case AST::Node::Type::EXPRESSION_STATEMENT:
+			case AST::StatementNode::Type::EXPRESSION_STATEMENT:
 				return visit(scope, dynamic_cast<const AST::ExpressionStatement*>(node)->expr);
-			case AST::Node::Type::STATEMENT_LIST:
+			case AST::StatementNode::Type::STATEMENT_LIST:
 				return visitStatementList(scope, dynamic_cast<const AST::StatementList*>(node));
-			case AST::Node::Type::RETURN_STATEMENT:
+			case AST::StatementNode::Type::RETURN_STATEMENT:
 				return visitReturnStatement(scope, dynamic_cast<const AST::ReturnStatement*>(node));
 
-			case AST::Node::Type::IF_STATEMENT:
+			case AST::StatementNode::Type::IF_STATEMENT:
 				return visitIfStatement(scope, dynamic_cast<const AST::IfStatement*>(node));
-			case AST::Node::Type::WHILE_STATEMENT:
+			case AST::StatementNode::Type::WHILE_STATEMENT:
 				return visitWhileStatement(scope, dynamic_cast<const AST::WhileStatement*>(node));
-			case AST::Node::Type::FUNCTION_DECLARATION_STATEMENT:
+			case AST::StatementNode::Type::FUNCTION_DECLARATION_STATEMENT:
 				return visitFunctionDeclaration(scope, dynamic_cast<const AST::FunctionDeclarationStatement*>(node));
-			case AST::Node::Type::VARIABLE_DECLARATION_STATEMENT:
+			case AST::StatementNode::Type::VARIABLE_DECLARATION_STATEMENT:
 				return visitVariableDeclaration(scope, dynamic_cast<const AST::VariableDeclarationStatement*>(node));
-			case AST::Node::Type::VARIABLE_ASSIGNMENT_STATEMENT:
+			case AST::StatementNode::Type::VARIABLE_ASSIGNMENT_STATEMENT:
 				return visitVariableAssignment(scope, dynamic_cast<const AST::VariableAssignmentStatement*>(node));
 		}
-		throw std::runtime_error("Interpreter::visit(): unknown Node type");
+
+		throw std::runtime_error("Interpreter::visit(StatementNode): invalid statement Node type");
 	}
 
 	Value visitLiteralExpression(ScopedVariableTable* scope, const AST::LiteralNode* node) {
 		Value out = Value::Void();
 
 		switch(node->type) {
-			case AST::LiteralNode::Type::BOOL:
+			case AST::LiteralNode::LiteralType::BOOL:
 				// ret = dynamic_cast<const AST::BoolLiteralNode*>(node)->value ? "true" : "false";
 				out = Value(dynamic_cast<const AST::BoolLiteralNode*>(node)->value);
 				break;
-			case AST::LiteralNode::Type::INT:
+			case AST::LiteralNode::LiteralType::INT:
 				// ret = std::to_string(dynamic_cast<const AST::IntLiteralNode*>(node)->value);
 				out = Value(dynamic_cast<const AST::IntLiteralNode*>(node)->value);
 				break;
-			case AST::LiteralNode::Type::FLOAT:
+			case AST::LiteralNode::LiteralType::FLOAT:
 				// ret = std::to_string(dynamic_cast<const AST::FloatLiteralNode*>(node)->value);
 				out = Value(dynamic_cast<const AST::FloatLiteralNode*>(node)->value);
 				break;
-			case AST::LiteralNode::Type::STRING:
+			case AST::LiteralNode::LiteralType::STRING:
 				// ret = dynamic_cast<const AST::StringLiteralNode*>(node)->value;
 				out = Value(dynamic_cast<const AST::StringLiteralNode*>(node)->value);
 				break;
