@@ -7,9 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "ScopedSymbolTable.hpp"
 #include "Tokens.hpp"
-#include "AST.hpp"
 
 
 namespace ParseTree {

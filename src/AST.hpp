@@ -284,7 +284,7 @@ namespace AST {
 			value(value) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH) << value;
+			std::cout << indent << (isLast ? LBRANCH : VBRANCH) << "\"" << value << "\"";
 			std::cout << "    StringLiteral " << span() << "\n";
 		}
 

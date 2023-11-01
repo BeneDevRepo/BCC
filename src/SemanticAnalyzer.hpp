@@ -98,8 +98,14 @@ public:
 		#pragma clang diagnostic push
 		#pragma clang diagnostic ignored "-Wswitch" // suppress unhandled enumeration warning
 		switch(node->value.type) {
+			case Token::Type::BOOL_LITERAL:
+				return new AST::BoolLiteralNode(scope, node->value.value == "true");
 			case Token::Type::INT_LITERAL:
 				return new AST::IntLiteralNode(scope, std::stoi(node->value.value)); // TODO: support all literal types
+			case Token::Type::FLOAT_LITERAL:
+				return new AST::FloatLiteralNode(scope, std::stof(node->value.value));
+			case Token::Type::STRING_LITERAL:
+				return new AST::StringLiteralNode(scope, node->value.value.substr(1, node->value.value.length()-2));
 		}
 		#pragma clang diagnostic pop
 		throw std::runtime_error("Error generating literal AST Node: Token is not a known literal type");
