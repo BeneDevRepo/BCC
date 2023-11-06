@@ -72,11 +72,18 @@ public:
 
 	// Expressions:
 	inline static const AST::ExpressionNode* visit(const ParseTree::FunctionCallExpressionNode* node, ScopedSymbolTable* scope) {
+		const std::string& name = node->name.value;
+		if(!scope->lookupRecursive(name))
+			throw std::runtime_error("Tried to call unknown function \"" + name + "\"");
+
+		if(scope->lookupRecursive(name)->category != Symbol::Category::FUNCTION)
+			throw std::runtime_error("Symbol \"" + name + "\" in Function call expression does not refer to a function.");
+		
 		std::vector<const AST::ExpressionNode*> astArgs;
 		for(const ParseTree::ExpressionNode* arg : node->args)
 			astArgs.push_back(visit(arg, scope));
 
-		return new AST::FunctionCallExpressionNode(scope, node->name.value, astArgs);
+		return new AST::FunctionCallExpressionNode(scope, name, astArgs);
 
 	}
 
@@ -93,7 +100,11 @@ public:
 	}
 
 	inline static const AST::ExpressionNode* visit(const ParseTree::IdentifierNode* node, ScopedSymbolTable* scope) {
-		return new AST::IdentifierNode(scope, node->name.value);
+		const std::string& name = node->name.value;
+		if(!scope->lookupRecursive(name))
+			throw std::runtime_error("Use of undeclared identifier \"" + name + "\"");
+		
+		return new AST::IdentifierNode(scope, name);
 	}
 
 	inline static const AST::LiteralNode* visit(const ParseTree::LiteralNode* node, ScopedSymbolTable* scope) {
@@ -116,11 +127,23 @@ public:
 
 	// Statments:
 	inline static const AST::StatementNode* visit(const ParseTree::VariableDeclarationStatement* node, ScopedSymbolTable* scope) {
-		if(!node->expr)
-			return new AST::VariableDeclarationStatement(scope, node->typeName.value, node->varName.value);
+		const std::string& typeName = node->typeName.value;
+		const std::string& varName = node->varName.value;
+		
+		if(!scope->lookupRecursive(typeName))
+				throw std::runtime_error("Unknown typename \"" + typeName + "\" in declaration of \"" + varName + "\"");
+		if(scope->lookup(varName))
+			throw std::runtime_error("Redeclaration of symbol \"" + varName + "\" in variable declaration");
 
-		const AST::VariableAssignmentStatement* assignment = new AST::VariableAssignmentStatement(scope, node->varName.value, visit(node->expr, scope));
-		return new AST::VariableDeclarationStatement(scope, node->typeName.value, node->varName.value, assignment);
+		scope->declare(new Symbol(Symbol::Category::VARIABLE, varName, typeName));
+		
+		if(!node->expr) {
+			return new AST::VariableDeclarationStatement(scope, typeName, varName);
+		}
+
+		const AST::ExpressionNode* expr = visit(node->expr, scope);
+		const AST::VariableAssignmentStatement* assignment = new AST::VariableAssignmentStatement(scope, varName, expr);
+		return new AST::VariableDeclarationStatement(scope, typeName, varName, assignment);
 	}
 
 	inline static const AST::StatementNode* visit(const ParseTree::ExpressionStatement* node, ScopedSymbolTable* scope) {
@@ -151,14 +174,32 @@ public:
 	}
 
 	inline static const AST::StatementNode* visit(const ParseTree::FunctionDeclarationStatement* node, ScopedSymbolTable* scope) {
+		const std::string& typeName = node->typeName.value;
+		const std::string& functionName = node->functionName.value;
+		
+		if(!scope->lookupRecursive(typeName))
+			throw std::runtime_error("Error declaring function: Unknown return type \"" + typeName + "\"");
+		if(scope->lookup(functionName))
+			throw std::runtime_error("Error declaring function: Redeclaration of symbol \"" + functionName + "\"");
+		
 		ScopedSymbolTable* localScope = new ScopedSymbolTable("Local Function Scope", scope);
 
 		std::vector<AST::FunctionDeclarationStatement::Argument> astArgs;
-
 		for(const ParseTree::ArgumentsNode::Argument& arg : node->args->args)
 			astArgs.push_back({ arg.type.value, arg.name.value });
+	
+		for(const AST::FunctionDeclarationStatement::Argument& arg : astArgs)
+			localScope->declare(new Symbol(Symbol::Category::VARIABLE, arg.name, arg.type));
 
-		return new AST::FunctionDeclarationStatement(localScope, node->typeName.value, node->functionName.value, astArgs, visit(node->body, localScope));
+		AST::FunctionDeclarationStatement* decl = new AST::FunctionDeclarationStatement(localScope, node->typeName.value, node->functionName.value, astArgs, nullptr);
+		scope->declare(new Symbol(Symbol::Category::FUNCTION, functionName, decl));
+
+		const AST::StatementNode* body = visit(node->body, localScope);
+		decl->body = body;
+
+		// scope->overwrite(new Symbol(Symbol::Category::FUNCTION, functionName, decl));
+
+		return decl;
 	}
 
 	inline static const AST::StatementList* visit(const ParseTree::Program* node, ScopedSymbolTable* scope) {

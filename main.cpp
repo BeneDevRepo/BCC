@@ -46,7 +46,6 @@ void run() {
 	ast->print("", true);
 	std::cout << "\n";
 
-	ast->visit();
 	globalScope.print();
 
 	Interpreter interpreter(ast);

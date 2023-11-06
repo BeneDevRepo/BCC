@@ -50,7 +50,6 @@ namespace AST {
 
 	public:
 		inline virtual void print(const std::string& indent = "", const bool isLast = true) const = 0;
-		inline virtual void visit() const = 0; // TODO: integrate into SemanticAnalyzer
 	};
 
 
@@ -87,36 +86,6 @@ namespace AST {
 
 
 	// expressions:
-	struct FunctionCallExpressionNode : public ExpressionNode {
-		std::string name; // function name
-		std::vector<const ExpressionNode*> args; // function call arguments
-
-		inline FunctionCallExpressionNode(ScopedSymbolTable* scope_, const std::string& name, const std::vector<const ExpressionNode*>& args):
-			ExpressionNode(scope_, Type::CALL_EXPRESSION, EvalType("void")), // TODO: set actual return type
-			name(name), args(args) {}
-
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
-			std::cout << RBRANCH << "    FunctionCall " << span() << "\n";
-
-			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			std::cout << subIndent << VBRANCH << name << "    Identifier " << "\n";
-			for(const ExpressionNode* arg : args)
-				arg->print(subIndent, arg == args.back());
-		}
-
-		inline virtual void visit() const {
-			if(!scope->lookupRecursive(name))
-				throw std::runtime_error("Tried to call unknown function \"" + name + "\"");
-
-			if(scope->lookupRecursive(name)->category != Symbol::Category::FUNCTION)
-				throw std::runtime_error("Symbol \"" + name + "\" in Function call expression does not refer to a function.");
-
-			for(const ExpressionNode* arg : args)
-				arg->visit();
-		}
-	};
-
 	struct UnaryExpressionNode : public ExpressionNode {
 		enum class Operation : uint8_t {
 			PLUS, MINUS,
@@ -139,10 +108,6 @@ namespace AST {
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
 			a->print(subIndent, true);
-		}
-
-		inline virtual void visit() const {
-			a->visit();
 		}
 	};
 
@@ -197,11 +162,6 @@ namespace AST {
 			a->print(subIndent, false);
 			b->print(subIndent, true);
 		}
-
-		inline virtual void visit() const {
-			a->visit();
-			b->visit();
-		}
 	};
 
 	struct IdentifierNode : public ExpressionNode {
@@ -214,11 +174,6 @@ namespace AST {
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH) << "<" << name << ">";
 			std::cout << "    Identifier " << span() << "\n";
-		}
-
-		inline virtual void visit() const {
-			if(!scope->lookupRecursive(name))
-				throw std::runtime_error("Use of undeclared identifier \"" + name + "\"");
 		}
 	};
 
@@ -242,9 +197,6 @@ namespace AST {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH) << (value ? "true" : "false");
 			std::cout << "    BoolLiteral " << span() << "\n";
 		}
-
-		inline virtual void visit() const {
-		}
 	};
 
 	struct IntLiteralNode : public LiteralNode {
@@ -257,9 +209,6 @@ namespace AST {
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH) << value;
 			std::cout << "    IntLiteral " << span() << "\n";
-		}
-
-		inline virtual void visit() const {
 		}
 	};
 
@@ -274,9 +223,6 @@ namespace AST {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH) << value;
 			std::cout << "    FloatLiteral " << span() << "\n";
 		}
-
-		inline virtual void visit() const {
-		}
 	};
 
 	struct StringLiteralNode : public LiteralNode {
@@ -289,9 +235,6 @@ namespace AST {
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH) << "\"" << value << "\"";
 			std::cout << "    StringLiteral " << span() << "\n";
-		}
-
-		inline virtual void visit() const {
 		}
 	};
 
@@ -313,13 +256,6 @@ namespace AST {
 			std::cout << subIndent << VBRANCH << varName << "    Identifier " << "\n";
 
 			expr->print(subIndent, true);
-		}
-
-		inline virtual void visit() const {
-			if(!scope->lookup(varName))
-				throw std::runtime_error("Assignment to undeclared Variable \"" + varName + "\"");
-			
-			expr->visit();
 		}
 	};
 
@@ -345,18 +281,6 @@ namespace AST {
 			if(initialAssignment)
 				initialAssignment->print(subIndent, true);
 		}
-
-		inline virtual void visit() const {
-			if(!scope->lookupRecursive(typeName))
-				throw std::runtime_error("Unknown typename \"" + typeName + "\" in declaration of \"" + varName + "\"");
-			if(scope->lookup(varName))
-				throw std::runtime_error("Redeclaration of symbol \"" + varName + "\" in variable declaration");
-
-			scope->declare(new Symbol(Symbol::Category::VARIABLE, varName, typeName));
-
-			if(initialAssignment)
-				initialAssignment->visit();
-		}
 	};
 
 	struct ExpressionStatement : public StatementNode {
@@ -374,10 +298,6 @@ namespace AST {
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
 
 			expr->print(subIndent, true);
-		}
-
-		inline virtual void visit() const {
-			expr->visit();
 		}
 	};
 
@@ -398,11 +318,6 @@ namespace AST {
 			for(const StatementNode* statement : statements)
 				statement->print(subIndent, statement == statements.back());
 		}
-
-		inline virtual void visit() const {
-			for(const StatementNode* statement : statements)
-				statement->visit();
-		}
 	};
 
 	struct ReturnStatement : public StatementNode {
@@ -420,10 +335,6 @@ namespace AST {
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
 			
 			expr->print(subIndent, true);
-		}
-
-		inline virtual void visit() const {
-			expr->visit();
 		}
 	};
 
@@ -444,11 +355,6 @@ namespace AST {
 			condition->print(subIndent, false);
 			body->print(subIndent, true);
 		}
-
-		inline virtual void visit() const {
-			condition->visit();
-			body->visit();
-		}
 	};
 
 	struct WhileStatement : public StatementNode {
@@ -467,11 +373,6 @@ namespace AST {
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
 			condition->print(subIndent, false);
 			body->print(subIndent, true);
-		}
-
-		inline virtual void visit() const {
-			condition->visit();
-			body->visit();
 		}
 	};
 
@@ -516,19 +417,32 @@ namespace AST {
 			printArgs(subIndent, false);
 			body->print(subIndent, true);
 		}
+	};
 
-		inline virtual void visit() const {
-			if(!scope->lookupRecursive(typeName))
-				throw std::runtime_error("Error declaring function: Unknown return type \"" + typeName + "\"");
-			if(scope->lookup(functionName))
-				throw std::runtime_error("Error declaring function: Redeclaration of symbol \"" + functionName + "\"");
+	struct FunctionCallExpressionNode : public ExpressionNode {
+		std::string name; // function name
+		std::vector<const ExpressionNode*> args; // function call arguments
 
-			scope->parent->declare(new Symbol(Symbol::Category::FUNCTION, functionName, this));
+		inline FunctionCallExpressionNode(ScopedSymbolTable* scope_, const std::string& name, const std::vector<const ExpressionNode*>& args):
+			ExpressionNode(
+				scope_,
+				Type::CALL_EXPRESSION,
+				EvalType(
+					dynamic_cast<const FunctionDeclarationStatement*>(
+						std::get<const Node*>(scope_->lookupRecursive(name)->type)
+					)->typeName
+				)
+			), // TODO: set actual return type
+			name(name), args(args) {}
 
-			for(const Argument& arg : args)
-				scope->declare(new Symbol(Symbol::Category::VARIABLE, arg.name, arg.type));
+		inline virtual void print(const std::string& indent, const bool isLast) const {
+			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+			std::cout << RBRANCH << "    FunctionCall " << span() << "\n";
 
-			body->visit();
+			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
+			std::cout << subIndent << VBRANCH << name << "    Identifier " << "\n";
+			for(const ExpressionNode* arg : args)
+				arg->print(subIndent, arg == args.back());
 		}
 	};
 };

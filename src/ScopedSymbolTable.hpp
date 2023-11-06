@@ -41,6 +41,15 @@ public:
 		symbols[sym->name] = sym;
 	}
 
+	inline void overwrite(const Symbol *const sym) {
+		if(!lookup(sym->name))
+			throw std::runtime_error("ScopedSymbolTable::overwrite(): Tried to overwrite non-existant symbol \"" + sym->name + "\"");
+		if(lookup(sym->name)->category != sym->category)
+			throw std::runtime_error("ScopedSymbolTable::overwrite(): Tried to overwrite symbol of different categories \"" + sym->name + "\"");
+
+		symbols[sym->name] = sym;
+	}
+
 	inline const Symbol* lookup(const std::string& name) const {
 		return symbols.contains(name) ? symbols.at(name) : nullptr;
 	}
