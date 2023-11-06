@@ -75,7 +75,9 @@ public:
 		std::vector<const AST::ExpressionNode*> astArgs;
 		for(const ParseTree::ExpressionNode* arg : node->args)
 			astArgs.push_back(visit(arg, scope));
+
 		return new AST::FunctionCallExpressionNode(scope, node->name.value, astArgs);
+
 	}
 
 	inline static const AST::ExpressionNode* visit(const ParseTree::GroupExpressionNode* node, ScopedSymbolTable* scope) {

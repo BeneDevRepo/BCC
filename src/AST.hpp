@@ -9,6 +9,7 @@
 
 #include "ScopedSymbolTable.hpp"
 #include "Tokens.hpp"
+#include "Types.hpp"
 
 
 namespace AST {
@@ -49,7 +50,7 @@ namespace AST {
 
 	public:
 		inline virtual void print(const std::string& indent = "", const bool isLast = true) const = 0;
-		inline virtual void visit() const = 0;
+		inline virtual void visit() const = 0; // TODO: integrate into SemanticAnalyzer
 	};
 
 
@@ -61,10 +62,12 @@ namespace AST {
 
 	private:
 		Type type_;
-	
+		EvalType evalType_;
+
 	public:
-		inline ExpressionNode(ScopedSymbolTable* scope_, const Type type): Node(scope_, BaseType::EXPRESSION), type_(type) {}
+		inline ExpressionNode(ScopedSymbolTable* scope_, const Type type, const EvalType& evalType): Node(scope_, BaseType::EXPRESSION), type_(type), evalType_(evalType) {}
 		inline Type type() const { return type_; }
+		inline EvalType evalType() const { return evalType_; }
 	};
 
 	struct StatementNode : public Node {
@@ -89,7 +92,7 @@ namespace AST {
 		std::vector<const ExpressionNode*> args; // function call arguments
 
 		inline FunctionCallExpressionNode(ScopedSymbolTable* scope_, const std::string& name, const std::vector<const ExpressionNode*>& args):
-			ExpressionNode(scope_, Type::CALL_EXPRESSION),
+			ExpressionNode(scope_, Type::CALL_EXPRESSION, EvalType("void")), // TODO: set actual return type
 			name(name), args(args) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -122,7 +125,7 @@ namespace AST {
 		const ExpressionNode *a;
 
 		inline UnaryExpressionNode(ScopedSymbolTable* scope_, const std::string& op_, const ExpressionNode* a):
-			ExpressionNode(scope_, Type::UNARY_EXPRESSION),
+			ExpressionNode(scope_, Type::UNARY_EXPRESSION, a->evalType()),
 			opString(op_), a(a) {
 			if(op_ == "+") op = Operation::PLUS;
 			else if(op_ == "-") op = Operation::MINUS;
@@ -154,7 +157,7 @@ namespace AST {
 		const ExpressionNode *b;
 
 		inline BinaryExpressionNode(ScopedSymbolTable* scope_, const ExpressionNode* a, const std::string& op_, const ExpressionNode* b):
-			ExpressionNode(scope_, Type::BINARY_EXPRESSION),
+			ExpressionNode(scope_, Type::BINARY_EXPRESSION, a->evalType()), // TODO: get actual evaluation type based on a and b
 			a(a), b(b) {
 			if(op_ == "+") op = Operation::PLUS;
 			else if(op_ == "-") op = Operation::MINUS;
@@ -205,7 +208,7 @@ namespace AST {
 		std::string name;
 
 		inline IdentifierNode(ScopedSymbolTable* scope_, const std::string& name):
-			ExpressionNode(scope_, Type::VARIABLE_EXPRESSION),
+			ExpressionNode(scope_, Type::VARIABLE_EXPRESSION, EvalType("int")), // TODO: get actual variable type
 			name(name) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -223,8 +226,8 @@ namespace AST {
 		enum class LiteralType : uint8_t {
 			BOOL, INT, FLOAT, STRING
 		} type;
-		inline LiteralNode(ScopedSymbolTable* scope_, const LiteralType type):
-			ExpressionNode(scope_, Type::LITERAL_EXPRESSION),
+		inline LiteralNode(ScopedSymbolTable* scope_, const LiteralType type, const EvalType& evalType):
+			ExpressionNode(scope_, Type::LITERAL_EXPRESSION, evalType),
 			type(type) {}
 	};
 
@@ -232,7 +235,7 @@ namespace AST {
 		bool value;
 
 		inline BoolLiteralNode(ScopedSymbolTable* scope_, const bool value):
-			LiteralNode(scope_, LiteralNode::LiteralType::BOOL),
+			LiteralNode(scope_, LiteralNode::LiteralType::BOOL, EvalType("bool")),
 			value(value) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -248,7 +251,7 @@ namespace AST {
 		int value;
 
 		inline IntLiteralNode(ScopedSymbolTable* scope_, const int value):
-			LiteralNode(scope_, LiteralNode::LiteralType::INT),
+			LiteralNode(scope_, LiteralNode::LiteralType::INT, EvalType("int")),
 			value(value) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -264,7 +267,7 @@ namespace AST {
 		float value;
 
 		inline FloatLiteralNode(ScopedSymbolTable* scope_, const float value):
-			LiteralNode(scope_, LiteralNode::LiteralType::FLOAT),
+			LiteralNode(scope_, LiteralNode::LiteralType::FLOAT, EvalType("float")),
 			value(value) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -280,7 +283,7 @@ namespace AST {
 		std::string value;
 
 		inline StringLiteralNode(ScopedSymbolTable* scope_, const std::string& value):
-			LiteralNode(scope_, LiteralNode::LiteralType::STRING),
+			LiteralNode(scope_, LiteralNode::LiteralType::STRING, EvalType("string")),
 			value(value) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
