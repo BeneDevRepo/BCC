@@ -238,7 +238,7 @@ public:
 	}
 
 	Value visitUnaryExpression(ScopedVariableTable* scope, const AST::UnaryExpressionNode* node) {
-		std::cout << indent << "<UnaryExpression " + node->opString + ">:\n";
+		std::cout << indent << "<UnaryExpression " << node->opString() << ">:\n";
 		
 		Value res = Value::Void();
 		

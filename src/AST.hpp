@@ -90,20 +90,27 @@ namespace AST {
 		enum class Operation : uint8_t {
 			PLUS, MINUS,
 		} op; // operation
-		std::string opString; // TODO: remove duplicate
 		const ExpressionNode *a;
 
 		inline UnaryExpressionNode(ScopedSymbolTable* scope_, const std::string& op_, const ExpressionNode* a):
 			ExpressionNode(scope_, Type::UNARY_EXPRESSION, a->evalType()),
-			opString(op_), a(a) {
+			a(a) {
 			if(op_ == "+") op = Operation::PLUS;
 			else if(op_ == "-") op = Operation::MINUS;
 			else throw std::runtime_error("Invalid unary operator");
 		}
 
+		inline const char* opString() const {
+			switch(op) {
+				case Operation::PLUS: return "+";
+				case Operation::MINUS: return "-";
+			}
+			throw std::runtime_error("Invalid unary operator enum value");
+		}
+
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
-			std::cout << opString;
+			std::cout << opString();
 			std::cout << "    UnaryExpression " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
@@ -122,16 +129,20 @@ namespace AST {
 		const ExpressionNode *b;
 
 		inline BinaryExpressionNode(ScopedSymbolTable* scope_, const ExpressionNode* a, const std::string& op_, const ExpressionNode* b):
-			ExpressionNode(scope_, Type::BINARY_EXPRESSION, a->evalType()), // TODO: get actual evaluation type based on a and b
-			a(a), b(b) {
-			if(op_ == "+") op = Operation::PLUS;
-			else if(op_ == "-") op = Operation::MINUS;
-			else if(op_ == "*") op = Operation::MUL;
-			else if(op_ == "/") op = Operation::DIV;
+				ExpressionNode(
+					scope_,
+					Type::BINARY_EXPRESSION,
+					binaryExpressionType(a->evalType(), op_, b->evalType())
+				),
+				a(a), b(b) {
+			if(op_ == "+")       op = Operation::PLUS;
+			else if(op_ == "-")  op = Operation::MINUS;
+			else if(op_ == "*")  op = Operation::MUL;
+			else if(op_ == "/")  op = Operation::DIV;
 			else if(op_ == "==") op = Operation::COMP_EQ;
 			else if(op_ == "!=") op = Operation::COMP_NE;
-			else if(op_ == ">") op = Operation::COMP_GT;
-			else if(op_ == "<") op = Operation::COMP_LT;
+			else if(op_ == ">")  op = Operation::COMP_GT;
+			else if(op_ == "<")  op = Operation::COMP_LT;
 			else if(op_ == ">=") op = Operation::COMP_GE;
 			else if(op_ == "<=") op = Operation::COMP_LE;
 			else throw std::runtime_error("Invalid binary operator");
@@ -168,7 +179,11 @@ namespace AST {
 		std::string name;
 
 		inline IdentifierNode(ScopedSymbolTable* scope_, const std::string& name):
-			ExpressionNode(scope_, Type::VARIABLE_EXPRESSION, EvalType("int")), // TODO: get actual variable type
+			ExpressionNode(
+				scope_,
+				Type::VARIABLE_EXPRESSION,
+				std::get<const std::string>(scope_->lookupRecursive(name)->type)
+			),
 			name(name) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
@@ -432,7 +447,7 @@ namespace AST {
 						std::get<const Node*>(scope_->lookupRecursive(name)->type)
 					)->typeName
 				)
-			), // TODO: set actual return type
+			),
 			name(name), args(args) {}
 
 		inline virtual void print(const std::string& indent, const bool isLast) const {
