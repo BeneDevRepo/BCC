@@ -15,7 +15,7 @@ constexpr const char *const code = R"(
 	}
 
 	float b = f(5);
-	string a = "asdf";
+	string a = "asdf" + b;
 )";
 
 void run() {

@@ -12,51 +12,146 @@
 #include "ScopedSymbolTable.hpp"
 
 
-struct Value {
+// string + bool  =>  string  <"true" || "false">
+inline std::string operator+(const std::string& a, const bool& b) { return a + (b ? "true" : "false"); }
+
+
+// string [- * /] [bool float int string]  =>  string  <exception>
+#define STRING_OP_DEFINE_TYPE(OP, T) \
+	inline std::string OP(const std::string& a, const T& b) { throw std::runtime_error("Tried to execute placeholder string-operation std::string " #OP " " #T); }
+#define STRING_OP_DEFINE(OP) \
+	STRING_OP_DEFINE_TYPE(OP, bool) \
+	STRING_OP_DEFINE_TYPE(OP, float) \
+	STRING_OP_DEFINE_TYPE(OP, int) \
+	STRING_OP_DEFINE_TYPE(OP, std::string)
+STRING_OP_DEFINE(operator-)
+STRING_OP_DEFINE(operator*)
+STRING_OP_DEFINE(operator/)
+#undef STRING_OP_DEFINE_TYPE
+#undef STRING_OP_DEFINE
+
+
+// string [== != > < >= <=] [bool float int string]  =>  bool  <exception>
+#define STRING_OP_DEFINE_TYPE(OP, T) \
+	inline bool OP(const std::string& a, const T& b) { throw std::runtime_error("Tried to execute placeholder string-operation std::string " #OP " " #T); }
+#define STRING_OP_DEFINE(OP) \
+	STRING_OP_DEFINE_TYPE(OP, bool) \
+	STRING_OP_DEFINE_TYPE(OP, float) \
+	STRING_OP_DEFINE_TYPE(OP, int) \
+	STRING_OP_DEFINE_TYPE(OP, std::string)
+STRING_OP_DEFINE(operator==)
+STRING_OP_DEFINE(operator!=)
+STRING_OP_DEFINE(operator>)
+STRING_OP_DEFINE(operator<)
+STRING_OP_DEFINE(operator>=)
+STRING_OP_DEFINE(operator<=)
+#undef STRING_OP_DEFINE_TYPE
+#undef STRING_OP_DEFINE
+
+
+// T [+ - * /] string  =>  string  <string [+ - * /] T>
+#define STRING_OP_CORRECT(OP_NAME, OP) \
+	template<typename T> \
+		requires ( \
+			requires (T a, const std::string& b) { \
+				{b OP a} -> std::convertible_to<std::string>; \
+			} \
+		)  \
+	inline std::string OP_NAME(const T& a, const std::string& b) { return b OP a; }
+STRING_OP_CORRECT(operator+, +)
+STRING_OP_CORRECT(operator-, -)
+STRING_OP_CORRECT(operator*, *)
+STRING_OP_CORRECT(operator/, /)
+#undef STRING_OP_CORRECT
+
+// T [== != > < >= <=] string  =>  bool  <string [== != > < >= <=] T>  ||  <exception>
+#define STRING_OP_CORRECT(OP_NAME, OP) \
+	template<typename T> requires (requires (T a, const std::string& b) {{b OP a} -> std::convertible_to<bool>; })  \
+	inline bool OP_NAME(const T& a, const std::string& b) { return b OP a; } \
+	template<typename T> requires (!requires (T a, const std::string& b) {{b OP a} -> std::convertible_to<bool>; })  \
+	inline bool OP_NAME(const T& a, const std::string& b) { throw std::runtime_error("Tried to execute placeholder string-operation std::string " #OP " " "UnknownType!!1!"); }
+STRING_OP_CORRECT(operator==, ==)
+STRING_OP_CORRECT(operator!=, !=)
+STRING_OP_CORRECT(operator>, >)
+STRING_OP_CORRECT(operator<, <)
+STRING_OP_CORRECT(operator>=, >=)
+STRING_OP_CORRECT(operator<=, <=)
+#undef STRING_OP_CORRECT
+
+
+struct StatementResult {
 public:
-	enum class Special : uint8_t {
+	enum class Type : uint8_t {
 		VOID, RETURN, BREAK, CONTINUE,
 	};
 
 private:
-	std::variant<Special, bool, int, float, std::string> value;
+	Type type_;
 
 public:
-	inline Value(const Special s): value(s) {}
+	inline StatementResult(const Type type): type_(type) {}
+	inline static StatementResult Void() { return StatementResult(Type::VOID); }
+	inline static StatementResult Return() { return StatementResult(Type::RETURN); }
+	inline static StatementResult Break() { return StatementResult(Type::BREAK); }
+	inline static StatementResult Continue() { return StatementResult(Type::CONTINUE); }
+
+public:
+	inline Type type() const { return type_; }
+};
+
+struct Value {
+private:
+	std::variant<std::monostate, bool, int, float, std::string> value; // std::monostate -> no value
+
+public:
+	inline Value(void): value{} {}
 	inline Value(const bool b): value(b) {}
 	inline Value(const int b): value(b) {}
 	inline Value(const float b): value(b) {}
 	inline Value(const std::string& b): value(b) {}
-	inline static Value Void() { return Value(Special::VOID); }
-	inline static Value Return() { return Value(Special::RETURN); }
-	inline static Value Break() { return Value(Special::BREAK); }
-	inline static Value Continue() { return Value(Special::CONTINUE); }
 
 public:
-	inline bool isVoid() const { return is<void>(); }
-	inline bool isConvertibleToBool() const { return is<bool>() || is<int>(); }
-	inline bool isControl() const {
-		if(!is<Special>())
-			return false;
-		const Special s = get<Special>();
-		return s==Special::RETURN || s==Special::BREAK || s==Special::CONTINUE;
-	}
-	inline bool toBool() const {
-		if(is<bool>()) return get<bool>();
-		if(is<int>()) return get<int>();
-		throw std::runtime_error("Tried to convert non-bool-converible Value to bool");
-	}
-
-
 	template<typename T>
 	inline bool is() const { return std::holds_alternative<T>(value); }
-
-	template<>
-	inline bool is<void>() const { return is<Special>() && get<Special>()==Special::VOID; }
+	inline bool isVoid() const { return is<std::monostate>(); }
+	inline bool isConvertibleToBool() const { return is<bool>() || is<int>(); }
 
 	template<typename T>
 	inline T get() const { return std::get<T>(value); }
 
+	template<typename T>
+	inline T to() const;
+
+	template<>
+	inline bool to<bool>() const {
+		if(is<bool>()) return get<bool>();
+		if(is<int>()) return get<int>();
+		throw std::runtime_error("Value::convert: Tried to convert non-bool-converible Value to bool");
+	}
+
+	template<>
+	inline int to<int>() const {
+		if(is<bool>()) return get<bool>();
+		if(is<int>()) return get<int>();
+		throw std::runtime_error("Value::convert: Tried to convert non-int-converible Value to int");
+	}
+
+	template<>
+	inline float to<float>() const {
+		if(is<bool>()) return get<bool>();
+		if(is<int>()) return get<int>();
+		if(is<float>()) return get<float>();
+		throw std::runtime_error("Value::convert: Tried to convert non-float-converible Value to float");
+	}
+
+	template<>
+	inline std::string to<std::string>() const {
+		if(is<bool>()) return get<bool>() ? "true" : "false";
+		if(is<int>()) return std::to_string(get<int>());
+		if(is<float>()) return std::to_string(get<float>());
+		if(is<std::string>()) return get<std::string>();
+		throw std::runtime_error("Value::convert: Tried to convert non-string-converible Value to string");
+	}
 
 	inline std::string toString() const {
 		if(isVoid()) return "<VOID>";
@@ -66,6 +161,36 @@ public:
 		if(is<std::string>()) return "<string>\"" + get<std::string>() + "\"";
 		throw std::runtime_error("Error printing interpreter value: unknown variant type");
 	}
+
+public:
+	#define typeCaseAB(TA, OP, TB) \
+		if(is<TA>() && other.is<TB>()) return get<TA>() OP other.get<TB>();
+	#define typeCaseA(TA, OP) \
+		typeCaseAB(TA, OP, bool) \
+		typeCaseAB(TA, OP, int) \
+		typeCaseAB(TA, OP, float) \
+		typeCaseAB(TA, OP, std::string)
+	#define opImpl(OP_NAME, OP) \
+		inline Value OP_NAME(const Value& other) const { \
+			typeCaseA(bool, OP) \
+			typeCaseA(int, OP) \
+			typeCaseA(float, OP) \
+			typeCaseA(std::string, OP) \
+			throw std::runtime_error("Error executing Interpreter::Value::" #OP_NAME "(): unsipported types " + toString() + ", " + other.toString()); \
+		}
+	opImpl(operator+, +)
+	opImpl(operator-, /)
+	opImpl(operator*, *)
+	opImpl(operator/, /)
+	opImpl(operator==, ==)
+	opImpl(operator!=, !=)
+	opImpl(operator>, >)
+	opImpl(operator<, <)
+	opImpl(operator>=, >=)
+	opImpl(operator<=, <=)
+	#undef opImpl
+	#undef typeCaseA
+	#undef typeCaseAB
 };
 
 
@@ -75,8 +200,6 @@ struct Variable {
 	} type;
 	std::string name;
 	Value value;
-	// std::string value;
-	// inline Variable(const Category type, const std::string& name, const std::string& value): type(type), name(name), value(value) {}
 	inline Variable(const Category type, const std::string& name, const Value& value): type(type), name(name), value(value) {}
 };
 
@@ -92,13 +215,21 @@ public:
 	inline ScopedVariableTable(const std::string& scopeName, ScopedVariableTable* parent = nullptr): scopeName(scopeName), parent(parent) {
 	}
 
-	// inline void set(const std::string& name, const std::string& value) {
 	inline void set(const std::string& name, const Value& value) {
 		if(symbols.contains(name)) {
 			symbols[name]->value = value;
 		}
 
-		symbols[name] = new Variable(Variable::Category::INT, name, value); // TODO: correct type
+		Variable::Category category = static_cast<Variable::Category>(-1);
+		if(value.is<bool>())
+			category = Variable::Category::BOOL;
+		if(value.is<int>())
+			category = Variable::Category::INT;
+		if(value.is<float>())
+			category = Variable::Category::FLOAT;
+		if(value.is<std::string>())
+			category = Variable::Category::STRING;
+		symbols[name] = new Variable(category, name, value); // TODO: correct type
 	}
 
 	inline const Variable* lookup(const std::string& name) const {
@@ -110,23 +241,8 @@ public:
 
 	inline void print(const std::string& indent) const {
 		std::cout << indent << "<Variable Table \"" + scopeName + "\">:\n";
-		for(const auto& [name, symbol] : symbols) {
-			std::cout << indent << name << ": ";
-			switch(symbol->type) {
-				case Variable::Category::BOOL:
-					std::cout << "<Bool>";
-					break;
-				case Variable::Category::INT:
-					std::cout << "<Int>";
-					break;
-				case Variable::Category::FLOAT:
-					std::cout << "<Float>";
-					break;
-				case Variable::Category::STRING:
-					std::cout << "<String>";
-					break;
-			}
-			std::cout << " " << symbol->value.toString() << "\n";
+		for(const auto& [name, value] : symbols) {
+			std::cout << indent << name << ": " << value->value.toString() << "\n";
 		}
 		std::cout << indent << "</Variable Table \"" + scopeName + "\">\n\n";
 	}
@@ -137,10 +253,13 @@ class Interpreter {
 private:
 	const AST::Node* ast;
 	ScopedVariableTable globalVariables;
+	Value returnValue;
+
+private:
 	std::string indent;
 
 public:
-	inline Interpreter(const AST::Node* ast): ast(ast), globalVariables("Global Scope") {
+	inline Interpreter(const AST::Node* ast): ast(ast), globalVariables("Global Scope"), returnValue() {
 	}
 
 	inline void run() {
@@ -174,10 +293,10 @@ public:
 		throw std::runtime_error("Interpreter::visit(ExpressionNode): invalid expression Node type");
 	}
 
-	inline Value visit(ScopedVariableTable* scope, const AST::StatementNode* node) {
+	inline StatementResult visit(ScopedVariableTable* scope, const AST::StatementNode* node) {
 		switch(node->type()) {
 			case AST::StatementNode::Type::EXPRESSION_STATEMENT:
-				return visit(scope, dynamic_cast<const AST::ExpressionStatement*>(node)->expr);
+				return visitExpressionStatement(scope, dynamic_cast<const AST::ExpressionStatement*>(node));
 			case AST::StatementNode::Type::STATEMENT_LIST:
 				return visitStatementList(scope, dynamic_cast<const AST::StatementList*>(node));
 			case AST::StatementNode::Type::RETURN_STATEMENT:
@@ -199,7 +318,7 @@ public:
 	}
 
 	Value visitLiteralExpression(ScopedVariableTable* scope, const AST::LiteralNode* node) {
-		Value out = Value::Void();
+		Value out;
 
 		switch(node->type) {
 			case AST::LiteralNode::LiteralType::BOOL:
@@ -240,7 +359,7 @@ public:
 	Value visitUnaryExpression(ScopedVariableTable* scope, const AST::UnaryExpressionNode* node) {
 		std::cout << indent << "<UnaryExpression " << node->opString() << ">:\n";
 		
-		Value res = Value::Void();
+		Value res;
 		
 		const Value a = visit(scope, node->a);
 
@@ -264,14 +383,41 @@ public:
 	Value visitBinaryExpression(ScopedVariableTable* scope, const AST::BinaryExpressionNode* node) {
 		std::cout << indent << "<BinaryExpression " + node->opString() + ">:\n";
 
-		Value res = Value::Void();
-
 		indent += "  ";
 
-		const Value a = visit(scope, node->a);
+		const Value va = visit(scope, node->a);
 
-		const Value b = visit(scope, node->b);
+		const Value vb = visit(scope, node->b);
 
+		const std::string& evalType = node->evalType().type();
+
+		Value res;
+
+		#define opCase(T, OP_NAME, OP) case AST::BinaryExpressionNode::Operation::OP_NAME: res = va OP vb; break; // TODO: fix logic operations (resType != input types)
+		#define typeCase(T) \
+		if(evalType == #T) { \
+			using std::string; \
+			switch(node->op) { \
+				opCase(T, PLUS, +) \
+				opCase(T, MINUS, /) \
+				opCase(T, MUL, *) \
+				opCase(T, DIV, /) \
+				opCase(T, COMP_EQ, ==) \
+				opCase(T, COMP_NE, !=) \
+				opCase(T, COMP_GT, >) \
+				opCase(T, COMP_LT, <) \
+				opCase(T, COMP_GE, >=) \
+				opCase(T, COMP_LE, <=) \
+			} \
+		}
+		typeCase(bool)
+		typeCase(int)
+		typeCase(float)
+		typeCase(string)
+		#undef typeCase
+		#undef opCase
+
+		/*
 		switch(node->op) {
 			case AST::BinaryExpressionNode::Operation::PLUS:
 				if(a.is<int>() && b.is<int>())     res = a.get<int>()   + b.get<int>(); break;
@@ -325,9 +471,14 @@ public:
 				if(a.is<float>() && b.is<int>())   res = a.get<float>() <= b.get<int>(); break;
 				if(a.is<float>() && b.is<float>()) res = a.get<float>() <= b.get<float>(); break;
 		}
+		*/
 
 		if(res.isVoid())
-			throw std::runtime_error("Interpreter::visitUnaryExpression: Invalid type or operator in Binary Expression");
+			throw std::runtime_error("Interpreter::visitBinaryExpression: Invalid type or operator in Binary Expression "
+				+ node->a->evalType().type()
+				+ node->opString()
+				+ node->b->evalType().type()
+				+ " -> " + node->evalType().type());
 
 		indent = indent.substr(0, indent.size() - 2);
 
@@ -357,30 +508,44 @@ public:
 			localScope->set(paramName, val);
 		}
 
-		const Value out = visit(localScope, targetFunction->body);
+		const StatementResult out = visit(localScope, targetFunction->body); // TODO: fix warning and rethink
 
 		indent = indent.substr(0, indent.size() - 2);
 
-		std::cout << indent << "</FunctionCall> => " << out.toString() << "\n";
+		std::cout << indent << "</FunctionCall> => " << returnValue.toString() << "\n";
 
 		localScope->print(indent);
 
-		return out;
+		return returnValue;
 	}
 
 
 	// Stetements:
-	Value visitStatementList(ScopedVariableTable* scope, const AST::StatementList* node) {
+	StatementResult visitExpressionStatement(ScopedVariableTable* scope, const AST::ExpressionStatement* node) {
+		std::cout << indent << "<StatementList>\n";
+
+		indent += "  ";
+
+		visit(scope, node);
+
+		indent = indent.substr(0, indent.size() - 2);
+
+		std::cout << indent << "</StatementList>\n";
+
+		return StatementResult::Void();
+	}
+
+	StatementResult visitStatementList(ScopedVariableTable* scope, const AST::StatementList* node) {
 		std::cout << indent << "<StatementList>\n";
 	
 		indent += "  ";
 
-		Value out = Value::Void();
+		StatementResult out = StatementResult::Void();
 
 		for(const AST::StatementNode* statement : node->statements) {
 			out = visit(scope, statement);
 
-			if(!out.isVoid()) break; // found return, break or continue statement // TODO: fix
+			if(out.type() != StatementResult::Type::VOID) break; // found return, break or continue statement // TODO: fix
 		}
 		
 		indent = indent.substr(0, indent.size() - 2);
@@ -390,21 +555,25 @@ public:
 		return out;
 	}
 
-	Value visitReturnStatement(ScopedVariableTable* scope, const AST::ReturnStatement* node) {
+	StatementResult visitReturnStatement(ScopedVariableTable* scope, const AST::ReturnStatement* node) {
 		std::cout << indent << "<ReturnStatement>\n";
 
 		indent += "  ";
 
-		const Value out = visit(scope, node->expr);
+		returnValue = visit(scope, node->expr);
+		// const Value out = visit(scope, node->expr);
 
 		indent = indent.substr(0, indent.size() - 2);
 
-		return out;
+		std::cout << indent << "</ReturnStatement>\n";
+
+		// return out;
+		return StatementResult::Return();
 	}
 
 
 
-	Value visitIfStatement(ScopedVariableTable* scope, const AST::IfStatement* node) {
+	StatementResult visitIfStatement(ScopedVariableTable* scope, const AST::IfStatement* node) {
 		std::cout << indent << "<IfStatement>\n";
 
 		indent += "  ";
@@ -413,10 +582,10 @@ public:
 
 		if(!cond.isConvertibleToBool())
 			throw std::runtime_error("Interpreter::visitIfStatement: condition not convertible to bool");
-		
-		Value res = Value::Void();
 
-		if(cond.toBool()) {
+		StatementResult res = StatementResult::Void();
+
+		if(cond.to<bool>()) {
 			ScopedVariableTable* localScope = new ScopedVariableTable("Local IfStatement Scope", scope);
 
 			res = visit(localScope, node->body);
@@ -424,12 +593,12 @@ public:
 
 		indent = indent.substr(0, indent.size() - 2);
 
-		std::cout << indent << "<IfStatement/>\n";
+		std::cout << indent << "</IfStatement>\n";
 
 		return res; // TODO: fix
 	}
 
-	Value visitWhileStatement(ScopedVariableTable* scope, const AST::WhileStatement* node) {
+	StatementResult visitWhileStatement(ScopedVariableTable* scope, const AST::WhileStatement* node) {
 		std::cout << indent << "<WhileStatement>\n";
 
 		indent += "  ";
@@ -438,18 +607,18 @@ public:
 
 		indent = indent.substr(0, indent.size() - 2);
 
-		std::cout << indent << "<WhileStatement/>\n";
+		std::cout << indent << "</WhileStatement>\n";
 
-		return Value::Void(); // TODO: fix
+		return StatementResult::Void(); // TODO: fix
 	}
 
-	Value visitFunctionDeclaration(ScopedVariableTable* scope, const AST::FunctionDeclarationStatement* node) {
-		std::cout << indent << "<FunctionDeclaration> (skipping)\n";
+	StatementResult visitFunctionDeclaration(ScopedVariableTable* scope, const AST::FunctionDeclarationStatement* node) {
+		std::cout << indent << "<FunctionDeclaration/> (skipping)\n";
 
-		return Value::Void();
+		return StatementResult::Void();
 	}
 
-	Value visitVariableDeclaration(ScopedVariableTable* scope, const AST::VariableDeclarationStatement* node) {
+	StatementResult visitVariableDeclaration(ScopedVariableTable* scope, const AST::VariableDeclarationStatement* node) {
 		std::cout << indent << "<VariableDeclaration>\n";
 
 		indent += "  ";
@@ -459,10 +628,12 @@ public:
 
 		indent = indent.substr(0, indent.size() - 2);
 
-		return Value::Void();
+		std::cout << indent << "</VariableDeclaration>\n";
+
+		return StatementResult::Void();
 	}
 
-	Value visitVariableAssignment(ScopedVariableTable* scope, const AST::VariableAssignmentStatement* node) {
+	StatementResult visitVariableAssignment(ScopedVariableTable* scope, const AST::VariableAssignmentStatement* node) {
 		std::cout << indent << "<VariableAssignment \"" + node->varName + "\">\n";
 
 		indent += "  ";
@@ -472,7 +643,9 @@ public:
 
 		indent = indent.substr(0, indent.size() - 2);
 
-		return Value::Void();
+		std::cout << indent << "</VariableAssignment>\n";
+
+		return StatementResult::Void();
 	}
 };
 
