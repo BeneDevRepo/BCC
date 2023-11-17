@@ -66,7 +66,7 @@ namespace AST {
 	public:
 		inline ExpressionNode(ScopedSymbolTable* scope_, const Type type, const EvalType& evalType): Node(scope_, BaseType::EXPRESSION), type_(type), evalType_(evalType) {}
 		inline Type type() const { return type_; }
-		inline EvalType evalType() const { return evalType_; }
+		inline const EvalType& evalType() const { return evalType_; }
 	};
 
 	struct StatementNode : public Node {
@@ -167,7 +167,7 @@ namespace AST {
 		inline virtual void print(const std::string& indent, const bool isLast) const {
 			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
 			std::cout << opString();
-			std::cout << "    BinaryExpression " << span() << "\n";
+			std::cout << "    BinaryExpression " << " -> " << evalType().type() << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
 			a->print(subIndent, false);

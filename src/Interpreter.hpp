@@ -56,6 +56,7 @@ STRING_OP_DEFINE(operator<=)
 			requires (T a, const std::string& b) { \
 				{b OP a} -> std::convertible_to<std::string>; \
 			} \
+			&& !std::convertible_to<std::remove_cvref_t<T>, std::string> \
 		)  \
 	inline std::string OP_NAME(const T& a, const std::string& b) { return b OP a; }
 STRING_OP_CORRECT(operator+, +)
@@ -179,7 +180,7 @@ public:
 			throw std::runtime_error("Error executing Interpreter::Value::" #OP_NAME "(): unsipported types " + toString() + ", " + other.toString()); \
 		}
 	opImpl(operator+, +)
-	opImpl(operator-, /)
+	opImpl(operator-, -)
 	opImpl(operator*, *)
 	opImpl(operator/, /)
 	opImpl(operator==, ==)
@@ -390,16 +391,25 @@ public:
 		const Value vb = visit(scope, node->b);
 
 		const std::string& evalType = node->evalType().type();
+		std::cout << "EvalType: " << node->evalType().type() << "\n";
+
+		// int zz;
+		// std::cin >> zz;
 
 		Value res;
 
-		#define opCase(T, OP_NAME, OP) case AST::BinaryExpressionNode::Operation::OP_NAME: res = va OP vb; break; // TODO: fix logic operations (resType != input types)
+		#define opCase(T, OP_NAME, OP) \
+			case AST::BinaryExpressionNode::Operation::OP_NAME: \
+				res = va OP vb; \
+				std::cout << "Executed opCase evalType:" #T " opName:" #OP_NAME " op:" #OP "  " << va.toString() << #OP << vb.toString() <<  " -> " << res.toString() << "\n"; \
+				break;
 		#define typeCase(T) \
 		if(evalType == #T) { \
+			std::cout << "Executing typeCase " #T "\n"; \
 			using std::string; \
 			switch(node->op) { \
 				opCase(T, PLUS, +) \
-				opCase(T, MINUS, /) \
+				opCase(T, MINUS, -) \
 				opCase(T, MUL, *) \
 				opCase(T, DIV, /) \
 				opCase(T, COMP_EQ, ==) \
@@ -410,6 +420,7 @@ public:
 				opCase(T, COMP_LE, <=) \
 			} \
 		}
+		
 		typeCase(bool)
 		typeCase(int)
 		typeCase(float)
