@@ -391,21 +391,18 @@ public:
 		const Value vb = visit(scope, node->b);
 
 		const std::string& evalType = node->evalType().type();
-		std::cout << "EvalType: " << node->evalType().type() << "\n";
 
-		// int zz;
-		// std::cin >> zz;
 
 		Value res;
 
 		#define opCase(T, OP_NAME, OP) \
 			case AST::BinaryExpressionNode::Operation::OP_NAME: \
 				res = va OP vb; \
-				std::cout << "Executed opCase evalType:" #T " opName:" #OP_NAME " op:" #OP "  " << va.toString() << #OP << vb.toString() <<  " -> " << res.toString() << "\n"; \
+				std::cout << "Executed opCase evalType:" #T " opName:" #OP_NAME " op:" #OP "  " << va.toString() << #OP << vb.toString() <<  " -> " << res.toString() << std::endl; \
 				break;
 		#define typeCase(T) \
 		if(evalType == #T) { \
-			std::cout << "Executing typeCase " #T "\n"; \
+			std::cout << "Executing typeCase " << #T << std::endl; \
 			using std::string; \
 			switch(node->op) { \
 				opCase(T, PLUS, +) \
@@ -421,10 +418,15 @@ public:
 			} \
 		}
 		
+		std::cout << "EvalType: <" << evalType << ">  Op: \"" << node->opString() << "\"" << std::endl;
 		typeCase(bool)
+		std::cout << "After: <" << "bool" << ">" << std::endl;
 		typeCase(int)
+		std::cout << "After: <" << "int" << ">" << std::endl;
 		typeCase(float)
+		std::cout << "After: <" << "float" << ">" << std::endl;
 		typeCase(string)
+		std::cout << "After: <" << "string" << ">" << std::endl;
 		#undef typeCase
 		#undef opCase
 
