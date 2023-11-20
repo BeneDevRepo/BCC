@@ -14,8 +14,8 @@ constexpr const char *const code = R"(
 		return f(x - 1) + f(x - 2);
 	}
 
-	float b = f(5);
-	string a = "asdf" + b;
+	int b = f(5);
+	string a = "asdf " + true + b + " ; " + 1 + (2 + 3);
 )";
 
 void run() {

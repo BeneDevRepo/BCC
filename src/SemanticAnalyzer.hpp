@@ -52,6 +52,8 @@ public:
 		switch(node->type()) {
 		case ParseTree::StatementNode::Type::VARIABLE_DECLARATION:
 			return visit(dynamic_cast<const ParseTree::VariableDeclarationStatement*>(node), scope);
+		case ParseTree::StatementNode::Type::VARIABLE_ASSIGNMENT:
+			return visit(dynamic_cast<const ParseTree::VariableAssignmentStatement*>(node), scope);
 		case ParseTree::StatementNode::Type::EXPRESSION_STATEMENT:
 			return visit(dynamic_cast<const ParseTree::ExpressionStatement*>(node), scope);
 		case ParseTree::StatementNode::Type::BLOCK_STATEMENT:
@@ -131,9 +133,11 @@ public:
 		const std::string& varName = node->varName.value;
 		
 		if(!scope->lookupRecursive(typeName))
-				throw std::runtime_error("Unknown typename \"" + typeName + "\" in declaration of \"" + varName + "\"");
+			throw std::runtime_error("Unknown typename \"" + typeName + "\" in declaration of \"" + varName + "\"");
 		if(scope->lookup(varName))
 			throw std::runtime_error("Redeclaration of symbol \"" + varName + "\" in variable declaration");
+
+		// TODO: type checking (including implicit type conversions)
 
 		scope->declare(new Symbol(Symbol::Category::VARIABLE, varName, typeName));
 		
@@ -144,6 +148,19 @@ public:
 		const AST::ExpressionNode* expr = visit(node->expr, scope);
 		const AST::VariableAssignmentStatement* assignment = new AST::VariableAssignmentStatement(scope, varName, expr);
 		return new AST::VariableDeclarationStatement(scope, typeName, varName, assignment);
+	}
+
+	inline static const AST::StatementNode* visit(const ParseTree::VariableAssignmentStatement* node, ScopedSymbolTable* scope) {
+		const std::string& varName = node->varName.value;
+		
+		if(!scope->lookup(varName))
+			throw std::runtime_error("Assignment to unknown variable \"" + varName + "\"");
+
+		// TODO: type checking (including implicit type conversions)
+
+		const AST::ExpressionNode* expr = visit(node->expr, scope);
+		const AST::VariableAssignmentStatement* assignment = new AST::VariableAssignmentStatement(scope, varName, expr);
+		return assignment;
 	}
 
 	inline static const AST::StatementNode* visit(const ParseTree::ExpressionStatement* node, ScopedSymbolTable* scope) {

@@ -66,8 +66,7 @@ namespace ParseTree {
 	public:
 		enum class Type : uint8_t {
 			EXPRESSION_STATEMENT, BLOCK_STATEMENT, RETURN_STATEMENT,
-			IF_STATEMENT, WHILE_STATEMENT, FUNCTION_DECLARATION, VARIABLE_DECLARATION,
-			// VARIABLE_ASSIGNMENT, // TODO: implement assignment operator
+			IF_STATEMENT, WHILE_STATEMENT, FUNCTION_DECLARATION, VARIABLE_DECLARATION, VARIABLE_ASSIGNMENT,
 		};
 
 	private:
@@ -256,6 +255,37 @@ namespace ParseTree {
 		inline virtual Span span() const { return Span(typeName.span, semicolon.span); }
 
 		inline virtual std::string toString(const size_t indent) const { return space(indent) + typeName.value + " " + varName.value + (expr ? (" " + equals.value + " " + expr->toString(0)) : "") + semicolon.value; }
+	};
+
+	struct VariableAssignmentStatement : public StatementNode {
+		Token varName;
+		Token equals;
+		const ExpressionNode* expr;
+		Token semicolon;
+
+		inline VariableAssignmentStatement(const Token& varName, const Token& equals, const ExpressionNode* expr, const Token& semicolon):
+			StatementNode(Type::VARIABLE_ASSIGNMENT),
+			varName(varName), equals(equals), expr(expr), semicolon(semicolon) {}
+
+		inline virtual void print(const std::string& indent, const bool isLast) const {
+			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+			std::cout << RBRANCH << "    Assignment " << span() << "\n";
+
+			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
+
+			std::cout << subIndent << VBRANCH << varName.value << "    Identifier " << varName.span << "\n";
+
+			if(expr) {
+				std::cout << subIndent << VBRANCH << equals.value << "    Operator " << equals.span << "\n";
+				expr->print(subIndent, false);
+			}
+
+			std::cout << subIndent << LBRANCH << semicolon.value << "    Semicolon " << span() << "\n";
+		}
+
+		inline virtual Span span() const { return Span(varName.span, semicolon.span); }
+
+		inline virtual std::string toString(const size_t indent) const { return space(indent) + varName.value + (expr ? (" " + equals.value + " " + expr->toString(0)) : "") + semicolon.value; }
 	};
 
 	struct ExpressionStatement : public StatementNode {

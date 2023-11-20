@@ -12,8 +12,9 @@
 #include "ScopedSymbolTable.hpp"
 
 
-// string + bool  =>  string  <"true" || "false">
-inline std::string operator+(const std::string& a, const bool& b) { return a + (b ? "true" : "false"); }
+inline std::string operator+(const std::string& a, const int v) { return a + std::to_string(v); }
+inline std::string operator+(const std::string& a, const float v) { return a + std::to_string(v); }
+inline std::string operator+(const std::string& a, const bool b) { return a + (b ? "true" : "false"); }
 
 
 // string [- * /] [bool float int string]  =>  string  <exception>
@@ -37,8 +38,7 @@ STRING_OP_DEFINE(operator/)
 #define STRING_OP_DEFINE(OP) \
 	STRING_OP_DEFINE_TYPE(OP, bool) \
 	STRING_OP_DEFINE_TYPE(OP, float) \
-	STRING_OP_DEFINE_TYPE(OP, int) \
-	STRING_OP_DEFINE_TYPE(OP, std::string)
+	STRING_OP_DEFINE_TYPE(OP, int)
 STRING_OP_DEFINE(operator==)
 STRING_OP_DEFINE(operator!=)
 STRING_OP_DEFINE(operator>)
@@ -46,6 +46,16 @@ STRING_OP_DEFINE(operator<)
 STRING_OP_DEFINE(operator>=)
 STRING_OP_DEFINE(operator<=)
 #undef STRING_OP_DEFINE_TYPE
+
+// #define STRING_OP_DEFINE(OP) \
+// 	STRING_OP_DEFINE_TYPE(OP, std::string)
+// #undef STRING_OP_DEFINE_TYPE
+// STRING_OP_DEFINE(operator==)
+// STRING_OP_DEFINE(operator!=)
+// STRING_OP_DEFINE(operator>)
+// STRING_OP_DEFINE(operator<)
+// STRING_OP_DEFINE(operator>=)
+// STRING_OP_DEFINE(operator<=)
 #undef STRING_OP_DEFINE
 
 
@@ -67,9 +77,17 @@ STRING_OP_CORRECT(operator/, /)
 
 // T [== != > < >= <=] string  =>  bool  <string [== != > < >= <=] T>  ||  <exception>
 #define STRING_OP_CORRECT(OP_NAME, OP) \
-	template<typename T> requires (requires (T a, const std::string& b) {{b OP a} -> std::convertible_to<bool>; })  \
+	template<typename T> \
+		requires ( \
+			!std::same_as<std::remove_cvref_t<T>, std::string> && \
+			requires (T a, const std::string& b) {{b OP a} -> std::convertible_to<bool>; } \
+		)  \
 	inline bool OP_NAME(const T& a, const std::string& b) { return b OP a; } \
-	template<typename T> requires (!requires (T a, const std::string& b) {{b OP a} -> std::convertible_to<bool>; })  \
+	template<typename T> \
+		requires ( \
+			!std::same_as<std::remove_cvref_t<T>, std::string> && \
+			!requires (T a, const std::string& b) {{b OP a} -> std::convertible_to<bool>; } \
+		)  \
 	inline bool OP_NAME(const T& a, const std::string& b) { throw std::runtime_error("Tried to execute placeholder string-operation std::string " #OP " " "UnknownType!!1!"); }
 STRING_OP_CORRECT(operator==, ==)
 STRING_OP_CORRECT(operator!=, !=)
@@ -522,6 +540,7 @@ public:
 		}
 
 		const StatementResult out = visit(localScope, targetFunction->body); // TODO: fix warning and rethink
+		(void)out;
 
 		indent = indent.substr(0, indent.size() - 2);
 

@@ -50,6 +50,9 @@ public:
 		if(const ParseTree::VariableDeclarationStatement* varDecl = variableDeclaration())
 			return varDecl;
 
+		if(const ParseTree::VariableAssignmentStatement* varAss = variableAssignment())
+			return varAss;
+
 		if(const ParseTree::IfStatement* ifStmt = ifStatement())
 			return ifStmt;
 
@@ -172,6 +175,42 @@ public:
 
 		tokenProvider.yeetState();
 		return new ParseTree::VariableDeclarationStatement(type, name, equals, expr, semicolon);
+	}
+
+	inline const ParseTree::VariableAssignmentStatement* variableAssignment() {
+		tokenProvider.pushState();
+
+		if(peekToken().type != Token::Type::IDENTIFIER) {
+			tokenProvider.popState();
+			return nullptr;
+		}
+		const Token& name = getToken();
+		
+
+		if(peekToken().type != Token::Type::EQUAL) {
+			tokenProvider.popState();
+			return nullptr;
+		}
+		const Token& equals = getToken(); // consume '='
+
+		const ParseTree::ExpressionNode* expr = expression();
+
+		if(!expr) {
+			throw std::runtime_error("Failed to parse Variable Assignment: missing expression");
+			tokenProvider.popState();
+			return nullptr;
+		}
+
+		if(peekToken().type != Token::Type::SEMICOLON) {
+			throw std::runtime_error("Failed to parse Variable Declaration: missing semicolon");
+			tokenProvider.popState();
+			return nullptr;
+		}
+
+		const Token& semicolon = getToken(); // consume ';'
+
+		tokenProvider.yeetState();
+		return new ParseTree::VariableAssignmentStatement(name, equals, expr, semicolon);
 	}
 
 	inline const ParseTree::IfStatement* ifStatement() {
