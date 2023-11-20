@@ -46,16 +46,6 @@ STRING_OP_DEFINE(operator<)
 STRING_OP_DEFINE(operator>=)
 STRING_OP_DEFINE(operator<=)
 #undef STRING_OP_DEFINE_TYPE
-
-// #define STRING_OP_DEFINE(OP) \
-// 	STRING_OP_DEFINE_TYPE(OP, std::string)
-// #undef STRING_OP_DEFINE_TYPE
-// STRING_OP_DEFINE(operator==)
-// STRING_OP_DEFINE(operator!=)
-// STRING_OP_DEFINE(operator>)
-// STRING_OP_DEFINE(operator<)
-// STRING_OP_DEFINE(operator>=)
-// STRING_OP_DEFINE(operator<=)
 #undef STRING_OP_DEFINE
 
 
@@ -79,13 +69,13 @@ STRING_OP_CORRECT(operator/, /)
 #define STRING_OP_CORRECT(OP_NAME, OP) \
 	template<typename T> \
 		requires ( \
-			!std::same_as<std::remove_cvref_t<T>, std::string> && \
+			!std::convertible_to<std::remove_cvref_t<T>, std::string> && \
 			requires (T a, const std::string& b) {{b OP a} -> std::convertible_to<bool>; } \
 		)  \
 	inline bool OP_NAME(const T& a, const std::string& b) { return b OP a; } \
 	template<typename T> \
 		requires ( \
-			!std::same_as<std::remove_cvref_t<T>, std::string> && \
+			!std::convertible_to<std::remove_cvref_t<T>, std::string> && \
 			!requires (T a, const std::string& b) {{b OP a} -> std::convertible_to<bool>; } \
 		)  \
 	inline bool OP_NAME(const T& a, const std::string& b) { throw std::runtime_error("Tried to execute placeholder string-operation std::string " #OP " " "UnknownType!!1!"); }
@@ -436,6 +426,8 @@ public:
 			} \
 		}
 		
+		const std::string& asdf = "asdf";
+		std::cout << "ASD == ASD: " << (asdf == "bool") << std::endl;
 		std::cout << "EvalType: <" << evalType << ">  Op: \"" << node->opString() << "\"" << std::endl;
 		typeCase(bool)
 		std::cout << "After: <" << "bool" << ">" << std::endl;
