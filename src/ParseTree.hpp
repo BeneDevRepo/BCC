@@ -2,7 +2,7 @@
 
 
 #include <stdexcept>
-#include <iostream>
+#include <ostream>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -41,9 +41,10 @@ namespace ParseTree {
 		inline BaseType baseType() const { return baseType_; }
 	
 	public:
-		inline virtual void print(const std::string& indent = "", const bool isLast = true) const = 0;
+		// inline virtual void print(const std::string& indent = "", const bool isLast = true) const = 0;
+		inline virtual void print(std::ostream& console, const std::string& indent = "", const bool isLast = true) const = 0;
 		inline virtual Span span() const = 0;
-		inline virtual std::string toString(const size_t indent = 0) const = 0;
+		inline virtual std::string toString(const size_t indent = 0) const = 0; // reconstructs source code
 	};
 
 
@@ -90,21 +91,21 @@ namespace ParseTree {
 			ExpressionNode(Type::CALL_EXPRESSION),
 			name(name), openParen(openParen), args(args), commas(commas), closeParen(closeParen) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
-			std::cout << RBRANCH << "    FunctionCall " << span() << "\n";
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+			console << RBRANCH << "    FunctionCall " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			std::cout << subIndent << VBRANCH << name.value << "    Identifier " << name.span << "\n";
-			std::cout << subIndent << VBRANCH << openParen.value << "    OpenParen " << openParen.span << "\n";
+			console << subIndent << VBRANCH << name.value << "    Identifier " << name.span << "\n";
+			console << subIndent << VBRANCH << openParen.value << "    OpenParen " << openParen.span << "\n";
 			for(const ExpressionNode* arg : args)
-				arg->print(subIndent, false);
-			std::cout << subIndent << LBRANCH << closeParen.value << "    CloseParen " << closeParen.span << "\n";
+				arg->print(console, subIndent, false);
+			console << subIndent << LBRANCH << closeParen.value << "    CloseParen " << closeParen.span << "\n";
 		}
 
-		inline virtual Span span() const { return Span(name.span, closeParen.span); }
+		inline virtual Span span() const override { return Span(name.span, closeParen.span); }
 
-		inline virtual std::string toString(const size_t indent) const {
+		inline virtual std::string toString(const size_t indent) const override {
 			std::string res = space(indent) + name.value + openParen.value;
 			for(size_t i = 0; i < commas.size(); i++)
 				res += args[i]->toString(0) + commas[i].value + " ";
@@ -124,20 +125,20 @@ namespace ParseTree {
 			ExpressionNode(Type::GROUP_EXPRESSION),
 			openParen(openParen), a(a), closeParen(closeParen) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
-			std::cout << RBRANCH;
-			std::cout << "    GroupExpression " << span() << "\n";
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+			console << RBRANCH;
+			console << "    GroupExpression " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			std::cout << subIndent << VBRANCH << openParen.value << "\n";
-			a->print(subIndent, false);
-			std::cout << subIndent << LBRANCH << closeParen.value << "\n";
+			console << subIndent << VBRANCH << openParen.value << "\n";
+			a->print(console, subIndent, false);
+			console << subIndent << LBRANCH << closeParen.value << "\n";
 		}
 
-		inline virtual Span span() const { return Span(openParen.span, closeParen.span); }
+		inline virtual Span span() const override { return Span(openParen.span, closeParen.span); }
 
-		inline virtual std::string toString(const size_t indent) const { return space(indent) + openParen.value + a->toString(0) + closeParen.value; }
+		inline virtual std::string toString(const size_t indent) const override { return space(indent) + openParen.value + a->toString(0) + closeParen.value; }
 	};
 
 	struct UnaryExpressionNode : public ExpressionNode {
@@ -148,18 +149,18 @@ namespace ParseTree {
 			ExpressionNode(Type::UNARY_EXPRESSION),
 			op(op), a(a) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
-			std::cout << op.value;
-			std::cout << "    UnaryExpression " << span() << "\n";
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+			console << op.value;
+			console << "    UnaryExpression " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			a->print(subIndent, true);
+			a->print(console, subIndent, true);
 		}
 
-		inline virtual Span span() const { return Span(a->span(), op.span); }
+		inline virtual Span span() const override { return Span(a->span(), op.span); }
 
-		inline virtual std::string toString(const size_t indent) const { return space(indent) + op.value + a->toString(0); }
+		inline virtual std::string toString(const size_t indent) const override { return space(indent) + op.value + a->toString(0); }
 	};
 
 	struct BinaryExpressionNode : public ExpressionNode {
@@ -171,19 +172,19 @@ namespace ParseTree {
 			ExpressionNode(Type::BINARY_EXPRESSION),
 			a(a), op(op), b(b) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
-			std::cout << op.value;
-			std::cout << "    BinaryExpression " << span() << "\n";
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+			console << op.value;
+			console << "    BinaryExpression " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			a->print(subIndent, false);
-			b->print(subIndent, true);
+			a->print(console, subIndent, false);
+			b->print(console, subIndent, true);
 		}
 
-		inline virtual Span span() const { return Span(a->span(), b->span()); }
+		inline virtual Span span() const override { return Span(a->span(), b->span()); }
 
-		inline virtual std::string toString(const size_t indent) const { return space(indent) + a->toString(0) + " " + op.value + " " + b->toString(0); }
+		inline virtual std::string toString(const size_t indent) const override { return space(indent) + a->toString(0) + " " + op.value + " " + b->toString(0); }
 	};
 
 	struct IdentifierNode : public ExpressionNode {
@@ -193,14 +194,14 @@ namespace ParseTree {
 			ExpressionNode(Type::VARIABLE_EXPRESSION),
 			name(name) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH) << "<" << name.value << ">";
-			std::cout << "    Identifier " << span() << "\n";
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH) << "<" << name.value << ">";
+			console << "    Identifier " << span() << "\n";
 		}
 
-		inline virtual Span span() const { return name.span; }
+		inline virtual Span span() const override { return name.span; }
 
-		inline virtual std::string toString(const size_t indent) const { return space(indent) + name.value; }
+		inline virtual std::string toString(const size_t indent) const override { return space(indent) + name.value; }
 	};
 
 	struct LiteralNode : public ExpressionNode {
@@ -210,14 +211,14 @@ namespace ParseTree {
 			ExpressionNode(Type::LITERAL_EXPRESSION),
 			value(value) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH) << value.value;
-			std::cout << "    Literal " << span() << "\n";
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH) << value.value;
+			console << "    Literal " << span() << "\n";
 		}
 
-		inline virtual Span span() const { return value.span; }
+		inline virtual Span span() const override { return value.span; }
 
-		inline virtual std::string toString(const size_t indent) const { return space(indent) + value.value; }
+		inline virtual std::string toString(const size_t indent) const override { return space(indent) + value.value; }
 	};
 
 
@@ -235,26 +236,26 @@ namespace ParseTree {
 		inline VariableDeclarationStatement(const Token& typeName, const Token& varName, const Token& semicolon):
 			VariableDeclarationStatement(typeName, varName, equals, nullptr, semicolon) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
-			std::cout << RBRANCH << "    Declaration " << span() << "\n";
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+			console << RBRANCH << "    Declaration " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			std::cout << subIndent << VBRANCH << typeName.value << "    Typename " << typeName.span << "\n";
+			console << subIndent << VBRANCH << typeName.value << "    Typename " << typeName.span << "\n";
 
-			std::cout << subIndent << VBRANCH << varName.value << "    Identifier " << varName.span << "\n";
+			console << subIndent << VBRANCH << varName.value << "    Identifier " << varName.span << "\n";
 
 			if(expr) {
-				std::cout << subIndent << VBRANCH << equals.value << "    Operator " << equals.span << "\n";
-				expr->print(subIndent, false);
+				console << subIndent << VBRANCH << equals.value << "    Operator " << equals.span << "\n";
+				expr->print(console, subIndent, false);
 			}
 
-			std::cout << subIndent << LBRANCH << semicolon.value << "    Semicolon " << span() << "\n";
+			console << subIndent << LBRANCH << semicolon.value << "    Semicolon " << span() << "\n";
 		}
 
-		inline virtual Span span() const { return Span(typeName.span, semicolon.span); }
+		inline virtual Span span() const override { return Span(typeName.span, semicolon.span); }
 
-		inline virtual std::string toString(const size_t indent) const { return space(indent) + typeName.value + " " + varName.value + (expr ? (" " + equals.value + " " + expr->toString(0)) : "") + semicolon.value; }
+		inline virtual std::string toString(const size_t indent) const override { return space(indent) + typeName.value + " " + varName.value + (expr ? (" " + equals.value + " " + expr->toString(0)) : "") + semicolon.value; }
 	};
 
 	struct VariableAssignmentStatement : public StatementNode {
@@ -267,25 +268,25 @@ namespace ParseTree {
 			StatementNode(Type::VARIABLE_ASSIGNMENT),
 			varName(varName), equals(equals), expr(expr), semicolon(semicolon) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
-			std::cout << RBRANCH << "    Assignment " << span() << "\n";
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+			console << RBRANCH << "    Assignment " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
 
-			std::cout << subIndent << VBRANCH << varName.value << "    Identifier " << varName.span << "\n";
+			console << subIndent << VBRANCH << varName.value << "    Identifier " << varName.span << "\n";
 
 			if(expr) {
-				std::cout << subIndent << VBRANCH << equals.value << "    Operator " << equals.span << "\n";
-				expr->print(subIndent, false);
+				console << subIndent << VBRANCH << equals.value << "    Operator " << equals.span << "\n";
+				expr->print(console, subIndent, false);
 			}
 
-			std::cout << subIndent << LBRANCH << semicolon.value << "    Semicolon " << span() << "\n";
+			console << subIndent << LBRANCH << semicolon.value << "    Semicolon " << span() << "\n";
 		}
 
-		inline virtual Span span() const { return Span(varName.span, semicolon.span); }
+		inline virtual Span span() const override { return Span(varName.span, semicolon.span); }
 
-		inline virtual std::string toString(const size_t indent) const { return space(indent) + varName.value + (expr ? (" " + equals.value + " " + expr->toString(0)) : "") + semicolon.value; }
+		inline virtual std::string toString(const size_t indent) const override { return space(indent) + varName.value + (expr ? (" " + equals.value + " " + expr->toString(0)) : "") + semicolon.value; }
 	};
 
 	struct ExpressionStatement : public StatementNode {
@@ -296,21 +297,21 @@ namespace ParseTree {
 			StatementNode(Type::EXPRESSION_STATEMENT),
 			expr(expr), semicolon(semicolon) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
 
-			std::cout << RBRANCH << "    ExpressionStatement " << span() << "\n";
+			console << RBRANCH << "    ExpressionStatement " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
 
-			expr->print(subIndent, false);
+			expr->print(console, subIndent, false);
 
-			std::cout << subIndent << LBRANCH << semicolon.value << "    Semicolon " << semicolon.span << "\n";
+			console << subIndent << LBRANCH << semicolon.value << "    Semicolon " << semicolon.span << "\n";
 		}
 
-		inline virtual Span span() const { return Span(expr->span(), semicolon.span); }
+		inline virtual Span span() const override { return Span(expr->span(), semicolon.span); }
 
-		inline virtual std::string toString(const size_t indent) const {
+		inline virtual std::string toString(const size_t indent) const override {
 			return expr->toString(indent) + semicolon.value;
 		}
 	};
@@ -325,23 +326,23 @@ namespace ParseTree {
 			StatementNode(Type::BLOCK_STATEMENT),
 			openBrace(openBrace), statements(statements), closeBrace(closeBrace), createScope(true) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
 
-			std::cout << RBRANCH << "    Block " << span() << "\n";
+			console << RBRANCH << "    Block " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			std::cout << subIndent << VBRANCH << openBrace.value << "    OpenBrace " << openBrace.span << "\n";
+			console << subIndent << VBRANCH << openBrace.value << "    OpenBrace " << openBrace.span << "\n";
 
 			for(const StatementNode* statement : statements)
-				statement->print(subIndent, false);
+				statement->print(console, subIndent, false);
 
-			std::cout << subIndent << LBRANCH << closeBrace.value << "    CloseBrace " << closeBrace.span << "\n";
+			console << subIndent << LBRANCH << closeBrace.value << "    CloseBrace " << closeBrace.span << "\n";
 		}
 
-		inline virtual Span span() const { return Span(openBrace.span, closeBrace.span); }
+		inline virtual Span span() const override { return Span(openBrace.span, closeBrace.span); }
 
-		inline virtual std::string toString(const size_t indent) const {
+		inline virtual std::string toString(const size_t indent) const override {
 			std::string res = space(indent) + openBrace.value + "\n";
 
 			for(const StatementNode* s : statements)
@@ -362,20 +363,20 @@ namespace ParseTree {
 			StatementNode(Type::RETURN_STATEMENT),
 			returnToken(returnToken), expr(expr), semicolon(semicolon) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
 
-			std::cout << RBRANCH << "    IfStatement " << span() << "\n";
+			console << RBRANCH << "    IfStatement " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			std::cout << subIndent << VBRANCH << returnToken.value << "    ReturnKeyword " << returnToken.span << "\n";
-			expr->print(subIndent, false);
-			std::cout << subIndent << LBRANCH << semicolon.value << "    semicolon " << semicolon.span << "\n";
+			console << subIndent << VBRANCH << returnToken.value << "    ReturnKeyword " << returnToken.span << "\n";
+			expr->print(console, subIndent, false);
+			console << subIndent << LBRANCH << semicolon.value << "    semicolon " << semicolon.span << "\n";
 		}
 
-		inline virtual Span span() const { return Span(returnToken.span, semicolon.span); }
+		inline virtual Span span() const override { return Span(returnToken.span, semicolon.span); }
 
-		inline virtual std::string toString(const size_t indent) const { return space(indent) + returnToken.value + " " + expr->toString(0) + semicolon.value; }
+		inline virtual std::string toString(const size_t indent) const override { return space(indent) + returnToken.value + " " + expr->toString(0) + semicolon.value; }
 	};
 
 	struct IfStatement : public StatementNode {
@@ -389,22 +390,22 @@ namespace ParseTree {
 			StatementNode(Type::IF_STATEMENT),
 			ifToken(ifToken), openParen(openParen), condition(condition), closeParen(closeParen), body(body) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
 
-			std::cout << RBRANCH << "    IfStatement " << span() << "\n";
+			console << RBRANCH << "    IfStatement " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			std::cout << subIndent << VBRANCH << ifToken.value << "    IfKeyword " << ifToken.span << "\n";
-			std::cout << subIndent << VBRANCH << openParen.value << "    OpenParen " << openParen.span << "\n";
-			condition->print(subIndent, false);
-			std::cout << subIndent << VBRANCH << closeParen.value << "    CloseParen " << closeParen.span << "\n";
-			body->print(subIndent, true);
+			console << subIndent << VBRANCH << ifToken.value << "    IfKeyword " << ifToken.span << "\n";
+			console << subIndent << VBRANCH << openParen.value << "    OpenParen " << openParen.span << "\n";
+			condition->print(console, subIndent, false);
+			console << subIndent << VBRANCH << closeParen.value << "    CloseParen " << closeParen.span << "\n";
+			body->print(console, subIndent, true);
 		}
 
-		inline virtual Span span() const { return Span(ifToken.span, body->span()); }
+		inline virtual Span span() const override { return Span(ifToken.span, body->span()); }
 
-		inline virtual std::string toString(const size_t indent) const { return space(indent) + ifToken.value + openParen.value + condition->toString(0) + closeParen.value + "\n" + body->toString(indent); }
+		inline virtual std::string toString(const size_t indent) const override { return space(indent) + ifToken.value + openParen.value + condition->toString(0) + closeParen.value + "\n" + body->toString(indent); }
 	};
 
 	struct WhileStatement : public StatementNode {
@@ -418,22 +419,22 @@ namespace ParseTree {
 			StatementNode(Type::WHILE_STATEMENT),
 			whileToken(whileToken), openParen(openParen), condition(condition), closeParen(closeParen), body(body) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
 
-			std::cout << RBRANCH << "    WhileStatement " << span() << "\n";
+			console << RBRANCH << "    WhileStatement " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			std::cout << subIndent << VBRANCH << whileToken.value << "    WhileKeyword " << whileToken.span << "\n";
-			std::cout << subIndent << VBRANCH << openParen.value << "    OpenParen " << openParen.span << "\n";
-			condition->print(subIndent, false);
-			std::cout << subIndent << VBRANCH << closeParen.value << "    CloseParen " << closeParen.span << "\n";
-			body->print(subIndent, true);
+			console << subIndent << VBRANCH << whileToken.value << "    WhileKeyword " << whileToken.span << "\n";
+			console << subIndent << VBRANCH << openParen.value << "    OpenParen " << openParen.span << "\n";
+			condition->print(console, subIndent, false);
+			console << subIndent << VBRANCH << closeParen.value << "    CloseParen " << closeParen.span << "\n";
+			body->print(console, subIndent, true);
 		}
 
-		inline virtual Span span() const { return Span(whileToken.span, body->span()); }
+		inline virtual Span span() const override { return Span(whileToken.span, body->span()); }
 
-		inline virtual std::string toString(const size_t indent) const { return space(indent) + whileToken.value + openParen.value + condition->toString(0) + closeParen.value + "\n" + body->toString(indent); }
+		inline virtual std::string toString(const size_t indent) const override { return space(indent) + whileToken.value + openParen.value + condition->toString(0) + closeParen.value + "\n" + body->toString(indent); }
 	};
 
 	struct ArgumentsNode {
@@ -444,25 +445,25 @@ namespace ParseTree {
 		inline ArgumentsNode(const std::vector<Argument>& args, const std::vector<Token>& commas):
 			args(args), commas(commas) {}
 
-		inline void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
-			std::cout << RBRANCH << "    ArgumentList " << span() << "\n";
+		inline void print(std::ostream& console, const std::string& indent, const bool isLast) const {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+			console << RBRANCH << "    ArgumentList " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
 
 			if(args.size() == 0) {
-				std::cout << subIndent << LBRANCH << "<empty>\n";
+				console << subIndent << LBRANCH << "<empty>\n";
 				return;
 			}
 
 			for(size_t i = 0; i < commas.size(); i++) {
-				std::cout << subIndent << VBRANCH << args[i].type.value << "    Typename " << args[i].type.span << "\n";
-				std::cout << subIndent << VBRANCH << args[i].name.value << "    Identifier " << args[i].name.span << "\n";
-				std::cout << subIndent << VBRANCH << commas[i].value << "    Comma " << commas[i].span << "\n";
+				console << subIndent << VBRANCH << args[i].type.value << "    Typename " << args[i].type.span << "\n";
+				console << subIndent << VBRANCH << args[i].name.value << "    Identifier " << args[i].name.span << "\n";
+				console << subIndent << VBRANCH << commas[i].value << "    Comma " << commas[i].span << "\n";
 			}
 
-			std::cout << subIndent << VBRANCH << args.back().type.value << "    Typename " << args.back().type.span << "\n";
-			std::cout << subIndent << LBRANCH << args.back().name.value << "    Identifier " << args.back().name.span << "\n";
+			console << subIndent << VBRANCH << args.back().type.value << "    Typename " << args.back().type.span << "\n";
+			console << subIndent << LBRANCH << args.back().name.value << "    Identifier " << args.back().name.span << "\n";
 		}
 
 		inline Span span() const { return args.size()>0 ? Span(args.front().type.span, args.back().name.span) : Span(static_cast<size_t>(-1), static_cast<size_t>(-1)); }
@@ -492,23 +493,23 @@ namespace ParseTree {
 			StatementNode(Type::FUNCTION_DECLARATION),
 			typeName(typeName), functionName(functionName), openParen(openParen), args(args), closeParen(closeParen), body(body) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
 
-			std::cout << RBRANCH << "    FunctionDeclarationStatement " << span() << "\n";
+			console << RBRANCH << "    FunctionDeclarationStatement " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			std::cout << subIndent << VBRANCH << typeName.value << "    Typename " << typeName.span << "\n";
-			std::cout << subIndent << VBRANCH << functionName.value << "    Identifier " << functionName.span << "\n";
-			std::cout << subIndent << VBRANCH << openParen.value << "    OpenParen " << openParen.span << "\n";
-			args->print(subIndent, false);
-			std::cout << subIndent << VBRANCH << closeParen.value << "    CloseParen " << closeParen.span << "\n";
-			body->print(subIndent, true);
+			console << subIndent << VBRANCH << typeName.value << "    Typename " << typeName.span << "\n";
+			console << subIndent << VBRANCH << functionName.value << "    Identifier " << functionName.span << "\n";
+			console << subIndent << VBRANCH << openParen.value << "    OpenParen " << openParen.span << "\n";
+			args->print(console, subIndent, false);
+			console << subIndent << VBRANCH << closeParen.value << "    CloseParen " << closeParen.span << "\n";
+			body->print(console, subIndent, true);
 		}
 
-		inline virtual Span span() const { return Span(typeName.span, body->span()); }
+		inline virtual Span span() const override { return Span(typeName.span, body->span()); }
 
-		inline virtual std::string toString(const size_t indent) const { return space(indent) + typeName.value + " " + functionName.value + openParen.value + args->toString(0) + closeParen.value + "\n" + body->toString(indent) + "\n"; }
+		inline virtual std::string toString(const size_t indent) const override { return space(indent) + typeName.value + " " + functionName.value + openParen.value + args->toString(0) + closeParen.value + "\n" + body->toString(indent) + "\n"; }
 	};
 
 	// Program:
@@ -519,20 +520,20 @@ namespace ParseTree {
 			Node(Node::BaseType::PROGRAM),
 			statements(statements) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
 
-			std::cout << RBRANCH << "    Program " << span() << "\n";
+			console << RBRANCH << "    Program " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
 
 			for(const StatementNode* statement : statements)
-				statement->print(subIndent, statement == statements.back());
+				statement->print(console, subIndent, statement == statements.back());
 		}
 
-		inline virtual Span span() const { return statements.size()>0 ? Span(statements.front()->span(), statements.back()->span()) : Span(static_cast<size_t>(-1), static_cast<size_t>(-1)); }
+		inline virtual Span span() const override { return statements.size()>0 ? Span(statements.front()->span(), statements.back()->span()) : Span(static_cast<size_t>(-1), static_cast<size_t>(-1)); }
 
-		inline virtual std::string toString(const size_t indent) const {
+		inline virtual std::string toString(const size_t indent) const override {
 			std::string res;
 
 			for(const StatementNode* s : statements)

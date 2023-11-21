@@ -3,7 +3,7 @@
 
 #include <unordered_map>
 #include <stdexcept>
-#include <iostream>
+#include <ostream>
 #include <variant>
 #include <cstdint>
 #include <string>
@@ -61,20 +61,20 @@ public:
 		return nullptr;
 	}
 
-	inline void print() const {
-		std::cout << "Symbol Table:\n";
+	inline void print(std::ostream& console) const {
+		console << "Symbol Table:\n";
 		for(const auto& [name, symbol] : symbols) {
-			std::cout << name << ": ";
-			std::cout << (symbol->category==Symbol::Category::TYPE ? "<Type>" : symbol->category==Symbol::Category::VARIABLE ? "<Variable>" : "<Function>");
-			std::cout << " ";
+			console << name << ": ";
+			console << (symbol->category==Symbol::Category::TYPE ? "<Type>" : symbol->category==Symbol::Category::VARIABLE ? "<Variable>" : "<Function>");
+			console << " ";
 
 			if(std::holds_alternative<const std::string>(symbol->type))
-				std::cout << std::get<const std::string>(symbol->type);
+				console << std::get<const std::string>(symbol->type);
 
 			if(std::holds_alternative<const AST::Node*>(symbol->type))
-				std::cout << "<AST::Node*>";
+				console << "<AST::Node*>";
 
-			std::cout << "\n";
+			console << "\n";
 		}
 	}
 };

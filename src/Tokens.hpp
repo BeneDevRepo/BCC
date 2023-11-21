@@ -2,7 +2,7 @@
 
 
 #include <algorithm>
-#include <iostream>
+#include <ostream>
 #include <variant>
 #include <cstdint>
 #include <string>
@@ -64,8 +64,8 @@ inline std::ostream& operator<<(std::ostream& cout, TokenProvider& lexer) {
 
 	do {
 		token = lexer.consume();
-		std::cout << token.value << " ";
-		// 	std::cout << "Token " << static_cast<int>(token.type) << " Value: " << token.value << " " << token.span << "\n";
+		cout << token.value << " ";
+		// 	cout << "Token " << static_cast<int>(token.type) << " Value: " << token.value << " " << token.span << "\n";
 	} while(token.type != Token::Type::END);
 
 	lexer.popState();

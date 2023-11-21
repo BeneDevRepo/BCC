@@ -108,9 +108,11 @@ public:
 	inline Type type() const { return type_; }
 };
 
+
 struct Value {
 private:
-	std::variant<std::monostate, bool, int, float, std::string> value; // std::monostate -> no value
+	struct VoidT {};
+	std::variant<std::monostate, VoidT, bool, int, float, std::string> value; // std::monostate -> no value
 
 public:
 	inline Value(void): value{} {}
@@ -118,11 +120,16 @@ public:
 	inline Value(const int b): value(b) {}
 	inline Value(const float b): value(b) {}
 	inline Value(const std::string& b): value(b) {}
+	inline static Value Void() { return { VoidT() }; }
+
+private:
+	inline Value(const VoidT& v): value(v) {}
 
 public:
 	template<typename T>
 	inline bool is() const { return std::holds_alternative<T>(value); }
-	inline bool isVoid() const { return is<std::monostate>(); }
+	inline bool isEmpty() const { return is<std::monostate>(); }
+	inline bool isVoid() const { return is<VoidT>(); }
 	inline bool isConvertibleToBool() const { return is<bool>() || is<int>(); }
 
 	template<typename T>
@@ -163,6 +170,7 @@ public:
 	}
 
 	inline std::string toString() const {
+		if(isEmpty()) return "<NO VALUE>";
 		if(isVoid()) return "<VOID>";
 		if(is<bool>()) return (get<bool>() ? "true" : "false");
 		if(is<int>()) return "<int>" + std::to_string(get<int>());
@@ -248,12 +256,12 @@ public:
 		throw std::runtime_error("ScopedVariableTable::lookup(): Tried to lookup unknown symbol \"" + name + "\"");
 	}
 
-	inline void print(const std::string& indent) const {
-		std::cout << indent << "<Variable Table \"" + scopeName + "\">:\n";
+	inline void print(std::ostream& console, const std::string& indent) const {
+		console << indent << "<Variable Table \"" + scopeName + "\">:\n";
 		for(const auto& [name, value] : symbols) {
-			std::cout << indent << name << ": " << value->value.toString() << "\n";
+			console << indent << name << ": " << value->value.toString() << "\n";
 		}
-		std::cout << indent << "</Variable Table \"" + scopeName + "\">\n\n";
+		console << indent << "</Variable Table \"" + scopeName + "\">\n\n";
 	}
 };
 
@@ -264,11 +272,12 @@ private:
 	ScopedVariableTable globalVariables;
 	Value returnValue;
 
-private:
+private: // logging:
 	std::string indent;
+	std::ostream& console;
 
 public:
-	inline Interpreter(const AST::Node* ast): ast(ast), globalVariables("Global Scope"), returnValue() {
+	inline Interpreter(const AST::Node* ast, std::ostream& console = std::cout): ast(ast), globalVariables("Global Scope"), returnValue(), console(console) {
 	}
 
 	inline void run() {
@@ -282,7 +291,7 @@ public:
 			break;
 		}
 
-		globalVariables.print(indent);
+		globalVariables.print(console, indent);
 	}
 
 	inline Value visit(ScopedVariableTable* scope, const AST::ExpressionNode* node) {
@@ -331,28 +340,23 @@ public:
 
 		switch(node->type) {
 			case AST::LiteralNode::LiteralType::BOOL:
-				// ret = dynamic_cast<const AST::BoolLiteralNode*>(node)->value ? "true" : "false";
 				out = Value(dynamic_cast<const AST::BoolLiteralNode*>(node)->value);
 				break;
 			case AST::LiteralNode::LiteralType::INT:
-				// ret = std::to_string(dynamic_cast<const AST::IntLiteralNode*>(node)->value);
 				out = Value(dynamic_cast<const AST::IntLiteralNode*>(node)->value);
 				break;
 			case AST::LiteralNode::LiteralType::FLOAT:
-				// ret = std::to_string(dynamic_cast<const AST::FloatLiteralNode*>(node)->value);
 				out = Value(dynamic_cast<const AST::FloatLiteralNode*>(node)->value);
 				break;
 			case AST::LiteralNode::LiteralType::STRING:
-				// ret = dynamic_cast<const AST::StringLiteralNode*>(node)->value;
 				out = Value(dynamic_cast<const AST::StringLiteralNode*>(node)->value);
 				break;
 		}
 
-		if(out.isVoid())
+		if(out.isEmpty())
 			throw std::runtime_error("Interpreter::visitLiteralExpression: Unknown Literal Type");
 
-		// std::cout << indent << "<LiteralExpression " + ret + "/> => " << ret << "\n";
-		std::cout << indent << "<LiteralExpression " << out.toString() << "/> => " << out.toString() << "\n";
+		console << indent << "<LiteralExpression " << out.toString() << "/> => " << out.toString() << "\n";
 
 		return out;
 	}
@@ -360,13 +364,13 @@ public:
 	Value visitVariableExpression(ScopedVariableTable* scope, const AST::IdentifierNode* node) {
 		const Value ret = scope->lookup(node->name)->value;
 
-		std::cout << indent << "<VariableExpression \"" + node->name + "\"/> => " << ret.toString() << "\n";
+		console << indent << "<VariableExpression \"" + node->name + "\"/> => " << ret.toString() << "\n";
 
 		return ret;
 	}
 
 	Value visitUnaryExpression(ScopedVariableTable* scope, const AST::UnaryExpressionNode* node) {
-		std::cout << indent << "<UnaryExpression " << node->opString() << ">:\n";
+		console << indent << "<UnaryExpression " << node->opString() << ">:\n";
 		
 		Value res;
 		
@@ -381,16 +385,16 @@ public:
 				if(a.is<float>())  res = -a.get<float>(); break;
 		}
 
-		if(res.isVoid())
+		if(res.isEmpty())
 			throw std::runtime_error("Interpreter::visitUnaryExpression: Invalid type or operator in Unary Expression");
 		
-		std::cout << indent << "</UnaryExpression> => " << res.toString() << "\n";
+		console << indent << "</UnaryExpression> => " << res.toString() << "\n";
 
 		return res;
 	}
 
 	Value visitBinaryExpression(ScopedVariableTable* scope, const AST::BinaryExpressionNode* node) {
-		std::cout << indent << "<BinaryExpression " + node->opString() + ">:\n";
+		console << indent << "<BinaryExpression " + node->opString() + ">:\n";
 
 		indent += "  ";
 
@@ -406,113 +410,48 @@ public:
 		#define opCase(T, OP_NAME, OP) \
 			case AST::BinaryExpressionNode::Operation::OP_NAME: \
 				res = va OP vb; \
-				std::cout << "Executed opCase evalType:" #T " opName:" #OP_NAME " op:" #OP "  " << va.toString() << #OP << vb.toString() <<  " -> " << res.toString() << std::endl; \
 				break;
 		#define typeCase(T) \
-		if(evalType == #T) { \
-			std::cout << "Executing typeCase " << #T << std::endl; \
-			using std::string; \
-			switch(node->op) { \
-				opCase(T, PLUS, +) \
-				opCase(T, MINUS, -) \
-				opCase(T, MUL, *) \
-				opCase(T, DIV, /) \
-				opCase(T, COMP_EQ, ==) \
-				opCase(T, COMP_NE, !=) \
-				opCase(T, COMP_GT, >) \
-				opCase(T, COMP_LT, <) \
-				opCase(T, COMP_GE, >=) \
-				opCase(T, COMP_LE, <=) \
-			} \
-		}
-		
-		const std::string& asdf = "asdf";
-		std::cout << "ASD == ASD: " << (asdf == "bool") << std::endl;
-		std::cout << "EvalType: <" << evalType << ">  Op: \"" << node->opString() << "\"" << std::endl;
+			if(evalType == #T) { \
+				using std::string; \
+				switch(node->op) { \
+					opCase(T, PLUS, +) \
+					opCase(T, MINUS, -) \
+					opCase(T, MUL, *) \
+					opCase(T, DIV, /) \
+					opCase(T, COMP_EQ, ==) \
+					opCase(T, COMP_NE, !=) \
+					opCase(T, COMP_GT, >) \
+					opCase(T, COMP_LT, <) \
+					opCase(T, COMP_GE, >=) \
+					opCase(T, COMP_LE, <=) \
+				} \
+			}
+
 		typeCase(bool)
-		std::cout << "After: <" << "bool" << ">" << std::endl;
 		typeCase(int)
-		std::cout << "After: <" << "int" << ">" << std::endl;
 		typeCase(float)
-		std::cout << "After: <" << "float" << ">" << std::endl;
 		typeCase(string)
-		std::cout << "After: <" << "string" << ">" << std::endl;
 		#undef typeCase
 		#undef opCase
 
-		/*
-		switch(node->op) {
-			case AST::BinaryExpressionNode::Operation::PLUS:
-				if(a.is<int>() && b.is<int>())     res = a.get<int>()   + b.get<int>(); break;
-				if(a.is<int>() && b.is<float>())   res = a.get<int>()   + b.get<float>(); break;
-				if(a.is<float>() && b.is<int>())   res = a.get<float>() + b.get<int>(); break;
-				if(a.is<float>() && b.is<float>()) res = a.get<float>() + b.get<float>(); break;
-			case AST::BinaryExpressionNode::Operation::MINUS:
-				if(a.is<int>() && b.is<int>())     res = a.get<int>()   - b.get<int>(); break;
-				if(a.is<int>() && b.is<float>())   res = a.get<int>()   - b.get<float>(); break;
-				if(a.is<float>() && b.is<int>())   res = a.get<float>() - b.get<int>(); break;
-				if(a.is<float>() && b.is<float>()) res = a.get<float>() - b.get<float>(); break;
-			case AST::BinaryExpressionNode::Operation::MUL:
-				if(a.is<int>() && b.is<int>())     res = a.get<int>()   * b.get<int>(); break;
-				if(a.is<int>() && b.is<float>())   res = a.get<int>()   * b.get<float>(); break;
-				if(a.is<float>() && b.is<int>())   res = a.get<float>() * b.get<int>(); break;
-				if(a.is<float>() && b.is<float>()) res = a.get<float>() * b.get<float>(); break;
-			case AST::BinaryExpressionNode::Operation::DIV:
-				if(a.is<int>() && b.is<int>())     res = a.get<int>()   / b.get<int>(); break;
-				if(a.is<int>() && b.is<float>())   res = a.get<int>()   / b.get<float>(); break;
-				if(a.is<float>() && b.is<int>())   res = a.get<float>() / b.get<int>(); break;
-				if(a.is<float>() && b.is<float>()) res = a.get<float>() / b.get<float>(); break;
-
-			case AST::BinaryExpressionNode::Operation::COMP_EQ:
-				if(a.is<int>() && b.is<int>())     res = a.get<int>()   == b.get<int>(); break;
-				if(a.is<int>() && b.is<float>())   res = a.get<int>()   == b.get<float>(); break;
-				if(a.is<float>() && b.is<int>())   res = a.get<float>() == b.get<int>(); break;
-				if(a.is<float>() && b.is<float>()) res = a.get<float>() == b.get<float>(); break;
-			case AST::BinaryExpressionNode::Operation::COMP_NE:
-				if(a.is<int>() && b.is<int>())     res = a.get<int>()   != b.get<int>(); break;
-				if(a.is<int>() && b.is<float>())   res = a.get<int>()   != b.get<float>(); break;
-				if(a.is<float>() && b.is<int>())   res = a.get<float>() != b.get<int>(); break;
-				if(a.is<float>() && b.is<float>()) res = a.get<float>() != b.get<float>(); break;
-			case AST::BinaryExpressionNode::Operation::COMP_GT:
-				if(a.is<int>() && b.is<int>())     res = a.get<int>()   > b.get<int>(); break;
-				if(a.is<int>() && b.is<float>())   res = a.get<int>()   > b.get<float>(); break;
-				if(a.is<float>() && b.is<int>())   res = a.get<float>() > b.get<int>(); break;
-				if(a.is<float>() && b.is<float>()) res = a.get<float>() > b.get<float>(); break;
-			case AST::BinaryExpressionNode::Operation::COMP_LT:
-				if(a.is<int>() && b.is<int>())     res = a.get<int>()   < b.get<int>(); break;
-				if(a.is<int>() && b.is<float>())   res = a.get<int>()   < b.get<float>(); break;
-				if(a.is<float>() && b.is<int>())   res = a.get<float>() < b.get<int>(); break;
-				if(a.is<float>() && b.is<float>()) res = a.get<float>() < b.get<float>(); break;
-			case AST::BinaryExpressionNode::Operation::COMP_GE:
-				if(a.is<int>() && b.is<int>())     res = a.get<int>()   >= b.get<int>(); break;
-				if(a.is<int>() && b.is<float>())   res = a.get<int>()   >= b.get<float>(); break;
-				if(a.is<float>() && b.is<int>())   res = a.get<float>() >= b.get<int>(); break;
-				if(a.is<float>() && b.is<float>()) res = a.get<float>() >= b.get<float>(); break;
-			case AST::BinaryExpressionNode::Operation::COMP_LE:
-				if(a.is<int>() && b.is<int>())     res = a.get<int>()   <= b.get<int>(); break;
-				if(a.is<int>() && b.is<float>())   res = a.get<int>()   <= b.get<float>(); break;
-				if(a.is<float>() && b.is<int>())   res = a.get<float>() <= b.get<int>(); break;
-				if(a.is<float>() && b.is<float>()) res = a.get<float>() <= b.get<float>(); break;
-		}
-		*/
-
-		if(res.isVoid())
+		if(res.isEmpty())
 			throw std::runtime_error("Interpreter::visitBinaryExpression: Invalid type or operator in Binary Expression "
 				+ node->a->evalType().type()
 				+ node->opString()
 				+ node->b->evalType().type()
-				+ " -> " + node->evalType().type());
+				+ " -> " + evalType);
 
 		indent = indent.substr(0, indent.size() - 2);
 
-		std::cout << indent << "</BinaryExpression> => " << res.toString() << "\n";
+		console << indent << "</BinaryExpression> => " << res.toString() << "\n";
 
 		return res;
 	}
 
 	Value visitFunctionCall(ScopedVariableTable* scope, const AST::FunctionCallExpressionNode* node) {
 		ScopedVariableTable* localScope = new ScopedVariableTable("Local FunctionCall Scope", scope);
-		std::cout << indent << "<FunctionCall \"" + node->name + "\">:\n";
+		console << indent << "<FunctionCall \"" + node->name + "\">:\n";
 
 		indent += "  ";
 
@@ -536,9 +475,9 @@ public:
 
 		indent = indent.substr(0, indent.size() - 2);
 
-		std::cout << indent << "</FunctionCall> => " << returnValue.toString() << "\n";
+		console << indent << "</FunctionCall> => " << returnValue.toString() << "\n";
 
-		localScope->print(indent);
+		localScope->print(console, indent);
 
 		return returnValue;
 	}
@@ -546,7 +485,7 @@ public:
 
 	// Stetements:
 	StatementResult visitExpressionStatement(ScopedVariableTable* scope, const AST::ExpressionStatement* node) {
-		std::cout << indent << "<StatementList>\n";
+		console << indent << "<StatementList>\n";
 
 		indent += "  ";
 
@@ -554,13 +493,13 @@ public:
 
 		indent = indent.substr(0, indent.size() - 2);
 
-		std::cout << indent << "</StatementList>\n";
+		console << indent << "</StatementList>\n";
 
 		return StatementResult::Void();
 	}
 
 	StatementResult visitStatementList(ScopedVariableTable* scope, const AST::StatementList* node) {
-		std::cout << indent << "<StatementList>\n";
+		console << indent << "<StatementList>\n";
 	
 		indent += "  ";
 
@@ -574,13 +513,13 @@ public:
 		
 		indent = indent.substr(0, indent.size() - 2);
 
-		std::cout << indent << "</StatementList>\n";
+		console << indent << "</StatementList>\n";
 
 		return out;
 	}
 
 	StatementResult visitReturnStatement(ScopedVariableTable* scope, const AST::ReturnStatement* node) {
-		std::cout << indent << "<ReturnStatement>\n";
+		console << indent << "<ReturnStatement>\n";
 
 		indent += "  ";
 
@@ -589,7 +528,7 @@ public:
 
 		indent = indent.substr(0, indent.size() - 2);
 
-		std::cout << indent << "</ReturnStatement>\n";
+		console << indent << "</ReturnStatement>\n";
 
 		// return out;
 		return StatementResult::Return();
@@ -598,7 +537,7 @@ public:
 
 
 	StatementResult visitIfStatement(ScopedVariableTable* scope, const AST::IfStatement* node) {
-		std::cout << indent << "<IfStatement>\n";
+		console << indent << "<IfStatement>\n";
 
 		indent += "  ";
 
@@ -617,13 +556,13 @@ public:
 
 		indent = indent.substr(0, indent.size() - 2);
 
-		std::cout << indent << "</IfStatement>\n";
+		console << indent << "</IfStatement>\n";
 
 		return res; // TODO: fix
 	}
 
 	StatementResult visitWhileStatement(ScopedVariableTable* scope, const AST::WhileStatement* node) {
-		std::cout << indent << "<WhileStatement>\n";
+		console << indent << "<WhileStatement>\n";
 
 		indent += "  ";
 
@@ -631,19 +570,19 @@ public:
 
 		indent = indent.substr(0, indent.size() - 2);
 
-		std::cout << indent << "</WhileStatement>\n";
+		console << indent << "</WhileStatement>\n";
 
 		return StatementResult::Void(); // TODO: fix
 	}
 
 	StatementResult visitFunctionDeclaration(ScopedVariableTable* scope, const AST::FunctionDeclarationStatement* node) {
-		std::cout << indent << "<FunctionDeclaration/> (skipping)\n";
+		console << indent << "<FunctionDeclaration/> (skipping)\n";
 
 		return StatementResult::Void();
 	}
 
 	StatementResult visitVariableDeclaration(ScopedVariableTable* scope, const AST::VariableDeclarationStatement* node) {
-		std::cout << indent << "<VariableDeclaration>\n";
+		console << indent << "<VariableDeclaration>\n";
 
 		indent += "  ";
 
@@ -652,13 +591,13 @@ public:
 
 		indent = indent.substr(0, indent.size() - 2);
 
-		std::cout << indent << "</VariableDeclaration>\n";
+		console << indent << "</VariableDeclaration>\n";
 
 		return StatementResult::Void();
 	}
 
 	StatementResult visitVariableAssignment(ScopedVariableTable* scope, const AST::VariableAssignmentStatement* node) {
-		std::cout << indent << "<VariableAssignment \"" + node->varName + "\">\n";
+		console << indent << "<VariableAssignment \"" + node->varName + "\">\n";
 
 		indent += "  ";
 
@@ -667,7 +606,7 @@ public:
 
 		indent = indent.substr(0, indent.size() - 2);
 
-		std::cout << indent << "</VariableAssignment>\n";
+		console << indent << "</VariableAssignment>\n";
 
 		return StatementResult::Void();
 	}

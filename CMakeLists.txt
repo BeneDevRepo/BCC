@@ -6,7 +6,7 @@ enable_testing()
 
 add_compile_options(-O2 -Wall -Wno-c++98-compat -Wno-c++98-compat-pedantic
 	-Wno-missing-prototypes -Wno-unused-parameter -Wno-shadow-field-in-constructor -Wno-shadow
-	-Wno-global-constructors -Wno-exit-time-destructors -Wno-implicit-int-float-conversion -Wno-float-equal)
+	-Wno-global-constructors -Wno-exit-time-destructors -Wno-implicit-int-float-conversion -Wno-float-equal -Wsuggest-override -Werror=suggest-override)
 
 set(CMAKE_CXX_STANDARD 20)
 

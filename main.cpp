@@ -1,4 +1,5 @@
 #include <iostream>
+#include <streambuf>
 
 #include "Lexer.hpp"
 #include "Parser.hpp"
@@ -18,19 +19,26 @@ constexpr const char *const code = R"(
 	string a = "asdf " + true + b + " ; " + 1 + (2 + 3);
 )";
 
+class DummyLogger: private std::streambuf, public std::ostream {
+public:
+	inline DummyLogger(): std::ostream(this) {}
+};
+
 void run() {
+	DummyLogger dout;
+	// std::ostream& cout = dout;
+	std::ostream& cout = std::cout;
+
 	Lexer lexer(code);
-
-	std::cout << lexer << "\n";
-
 	Parser parser(lexer);
+
+	cout << lexer << "\n";
 
 	const ParseTree::Program* tree = parser.program();
 
-	std::cout << "ParseTree:  " << tree << "\n";
-	tree->print("", true);
+	tree->print(cout, "", true);
 
-	std::cout << "\nReconstructed Source:\n" << tree->toString(0) << "\n\n";
+	cout << "\nReconstructed Source:\n" << tree->toString(0) << "\n\n";
 
 	ScopedSymbolTable globalScope("Global Scope");
 	globalScope.declare(new Symbol(Symbol::Category::TYPE, "void", "__VOID__"));
@@ -39,17 +47,16 @@ void run() {
 	globalScope.declare(new Symbol(Symbol::Category::TYPE, "float", "__FLOAT__"));
 	globalScope.declare(new Symbol(Symbol::Category::TYPE, "string", "__STRING__"));
 
-	// const AST::Node* ast = tree->ast(&globalScope);
 	const AST::Node* ast = SemanticAnalyzer::visit(tree, &globalScope);
 
-	std::cout << "AST: " << ast << "\n";
-	ast->print("", true);
-	std::cout << "\n";
+	cout << "AST: " << ast << "\n";
+	ast->print(cout, "", true);
+	cout << "\n";
 
-	globalScope.print();
+	globalScope.print(cout);
 
-	Interpreter interpreter(ast);
-	std::cout << "\nInterpreting:\n";
+	Interpreter interpreter(ast, cout);
+	cout << "\nInterpreting:\n";
 	interpreter.run();
 }
 

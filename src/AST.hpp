@@ -2,7 +2,7 @@
 
 
 #include <stdexcept>
-#include <iostream>
+#include <ostream>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -49,7 +49,7 @@ namespace AST {
 		inline const ScopedSymbolTable& getScope() const { return *scope; }
 
 	public:
-		inline virtual void print(const std::string& indent = "", const bool isLast = true) const = 0;
+		inline virtual void print(std::ostream& console, const std::string& indent = "", const bool isLast = true) const = 0;
 	};
 
 
@@ -108,13 +108,13 @@ namespace AST {
 			throw std::runtime_error("Invalid unary operator enum value");
 		}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
-			std::cout << opString();
-			std::cout << "    UnaryExpression " << span() << "\n";
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+			console << opString();
+			console << "    UnaryExpression " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			a->print(subIndent, true);
+			a->print(console, subIndent, true);
 		}
 	};
 
@@ -164,14 +164,14 @@ namespace AST {
 			throw std::runtime_error("Invalid binary operator enum value");
 		}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
-			std::cout << opString();
-			std::cout << "    BinaryExpression " << " -> " << evalType().type() << span() << "\n";
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+			console << opString();
+			console << "    BinaryExpression " << " -> " << evalType().type() << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			a->print(subIndent, false);
-			b->print(subIndent, true);
+			a->print(console, subIndent, false);
+			b->print(console, subIndent, true);
 		}
 	};
 
@@ -186,9 +186,9 @@ namespace AST {
 			),
 			name(name) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH) << "<" << name << ">";
-			std::cout << "    Identifier " << span() << "\n";
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH) << "<" << name << ">";
+			console << "    Identifier " << span() << "\n";
 		}
 	};
 
@@ -208,9 +208,9 @@ namespace AST {
 			LiteralNode(scope_, LiteralNode::LiteralType::BOOL, EvalType("bool")),
 			value(value) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH) << (value ? "true" : "false");
-			std::cout << "    BoolLiteral " << span() << "\n";
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH) << (value ? "true" : "false");
+			console << "    BoolLiteral " << span() << "\n";
 		}
 	};
 
@@ -221,9 +221,9 @@ namespace AST {
 			LiteralNode(scope_, LiteralNode::LiteralType::INT, EvalType("int")),
 			value(value) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH) << value;
-			std::cout << "    IntLiteral " << span() << "\n";
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH) << value;
+			console << "    IntLiteral " << span() << "\n";
 		}
 	};
 
@@ -234,9 +234,9 @@ namespace AST {
 			LiteralNode(scope_, LiteralNode::LiteralType::FLOAT, EvalType("float")),
 			value(value) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH) << value;
-			std::cout << "    FloatLiteral " << span() << "\n";
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH) << value;
+			console << "    FloatLiteral " << span() << "\n";
 		}
 	};
 
@@ -247,9 +247,9 @@ namespace AST {
 			LiteralNode(scope_, LiteralNode::LiteralType::STRING, EvalType("string")),
 			value(value) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH) << "\"" << value << "\"";
-			std::cout << "    StringLiteral " << span() << "\n";
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH) << "\"" << value << "\"";
+			console << "    StringLiteral " << span() << "\n";
 		}
 	};
 
@@ -263,14 +263,14 @@ namespace AST {
 			StatementNode(scope_, Type::VARIABLE_ASSIGNMENT_STATEMENT),
 			varName(varName), expr(expr) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
-			std::cout << RBRANCH << "    Assignment " << span() << "\n";
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+			console << RBRANCH << "    Assignment " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			std::cout << subIndent << VBRANCH << varName << "    Identifier " << "\n";
+			console << subIndent << VBRANCH << varName << "    Identifier " << "\n";
 
-			expr->print(subIndent, true);
+			expr->print(console, subIndent, true);
 		}
 	};
 
@@ -285,16 +285,16 @@ namespace AST {
 		inline VariableDeclarationStatement(ScopedSymbolTable* scope_, const std::string& typeName, const std::string& varName):
 			VariableDeclarationStatement(scope_, typeName, varName, nullptr) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
-			std::cout << RBRANCH << "    Declaration " << span() << "\n";
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+			console << RBRANCH << "    Declaration " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			std::cout << subIndent << VBRANCH << typeName << "    Typename " << "\n";
-			std::cout << subIndent << (initialAssignment ? VBRANCH : LBRANCH) << varName << "    Identifier " << "\n";
+			console << subIndent << VBRANCH << typeName << "    Typename " << "\n";
+			console << subIndent << (initialAssignment ? VBRANCH : LBRANCH) << varName << "    Identifier " << "\n";
 
 			if(initialAssignment)
-				initialAssignment->print(subIndent, true);
+				initialAssignment->print(console, subIndent, true);
 		}
 	};
 
@@ -305,14 +305,14 @@ namespace AST {
 			StatementNode(scope_, Type::EXPRESSION_STATEMENT),
 			expr(expr) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
 
-			std::cout << RBRANCH << "    ExpressionStatement " << span() << "\n";
+			console << RBRANCH << "    ExpressionStatement " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
 
-			expr->print(subIndent, true);
+			expr->print(console, subIndent, true);
 		}
 	};
 
@@ -323,15 +323,15 @@ namespace AST {
 			StatementNode(scope_, Type::STATEMENT_LIST),
 			statements(statements) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
 
-			std::cout << RBRANCH << "    Block " << span() << "\n";
+			console << RBRANCH << "    Block " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
 
 			for(const StatementNode* statement : statements)
-				statement->print(subIndent, statement == statements.back());
+				statement->print(console, subIndent, statement == statements.back());
 		}
 	};
 
@@ -342,14 +342,14 @@ namespace AST {
 			StatementNode(scope_, Type::RETURN_STATEMENT),
 			expr(expr) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
 
-			std::cout << RBRANCH << "    ReturnStatement " << span() << "\n";
+			console << RBRANCH << "    ReturnStatement " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
 			
-			expr->print(subIndent, true);
+			expr->print(console, subIndent, true);
 		}
 	};
 
@@ -361,14 +361,14 @@ namespace AST {
 			StatementNode(scope_, Type::IF_STATEMENT),
 			condition(condition), body(body) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
 
-			std::cout << RBRANCH << "    IfStatement " << span() << "\n";
+			console << RBRANCH << "    IfStatement " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			condition->print(subIndent, false);
-			body->print(subIndent, true);
+			condition->print(console, subIndent, false);
+			body->print(console, subIndent, true);
 		}
 	};
 
@@ -380,14 +380,14 @@ namespace AST {
 			StatementNode(scope_, Type::WHILE_STATEMENT),
 			condition(condition), body(body) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
 
-			std::cout << RBRANCH << "    WhileStatement " << span() << "\n";
+			console << RBRANCH << "    WhileStatement " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			condition->print(subIndent, false);
-			body->print(subIndent, true);
+			condition->print(console, subIndent, false);
+			body->print(console, subIndent, true);
 		}
 	};
 
@@ -403,34 +403,34 @@ namespace AST {
 			StatementNode(scope_, Type::FUNCTION_DECLARATION_STATEMENT),
 			typeName(typeName), functionName(functionName), args(args), body(body) {}
 		
-		inline void printArgs(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
-			std::cout << RBRANCH << "    ArgumentList " << "\n";
+		inline void printArgs(std::ostream& console, const std::string& indent, const bool isLast) const {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+			console << RBRANCH << "    ArgumentList " << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
 
 			if(args.size() == 0) {
-				std::cout << subIndent << LBRANCH << "<empty>\n";
+				console << subIndent << LBRANCH << "<empty>\n";
 				return;
 			}
 
 			for(size_t i = 0; i < args.size(); i++) {
-				std::cout << subIndent << VBRANCH << args[i].type << "    Typename " << "\n";
-				std::cout << subIndent << (i==args.size()-1 ? LBRANCH : VBRANCH) << args[i].name << "    Identifier " << "\n";
+				console << subIndent << VBRANCH << args[i].type << "    Typename " << "\n";
+				console << subIndent << (i==args.size()-1 ? LBRANCH : VBRANCH) << args[i].name << "    Identifier " << "\n";
 			}
 		}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
 
-			std::cout << RBRANCH << "    FunctionDeclarationStatement " << span() << "\n";
+			console << RBRANCH << "    FunctionDeclarationStatement " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			std::cout << subIndent << VBRANCH << typeName << "    Typename " << "\n";
-			std::cout << subIndent << VBRANCH << functionName << "    Identifier " << "\n";
+			console << subIndent << VBRANCH << typeName << "    Typename " << "\n";
+			console << subIndent << VBRANCH << functionName << "    Identifier " << "\n";
 
-			printArgs(subIndent, false);
-			body->print(subIndent, true);
+			printArgs(console, subIndent, false);
+			body->print(console, subIndent, true);
 		}
 	};
 
@@ -450,14 +450,14 @@ namespace AST {
 			),
 			name(name), args(args) {}
 
-		inline virtual void print(const std::string& indent, const bool isLast) const {
-			std::cout << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
-			std::cout << RBRANCH << "    FunctionCall " << span() << "\n";
+		inline virtual void print(std::ostream& console, const std::string& indent, const bool isLast) const override {
+			console << indent << (isLast ? LBRANCH : VBRANCH); // isLast ? "└─" : "├─"
+			console << RBRANCH << "    FunctionCall " << span() << "\n";
 
 			const std::string subIndent = indent + (isLast ? SPACE : VSPACE); // isLast ? "  " : "│ "
-			std::cout << subIndent << VBRANCH << name << "    Identifier " << "\n";
+			console << subIndent << VBRANCH << name << "    Identifier " << "\n";
 			for(const ExpressionNode* arg : args)
-				arg->print(subIndent, arg == args.back());
+				arg->print(console, subIndent, arg == args.back());
 		}
 	};
 };
