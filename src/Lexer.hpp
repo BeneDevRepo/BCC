@@ -26,11 +26,11 @@ public:
 	}
 
 public:
-	inline virtual Token peek() const {
+	inline virtual Token peek() const override {
 		return nextToken;
 	}
 
-	inline virtual Token consume() {
+	inline virtual Token consume() override {
 		const Token res = nextToken;
 
 		nextToken = getNextTokenNoSpace(nextToken.span.end());
@@ -38,16 +38,16 @@ public:
 		return res;
 	}
 
-	inline virtual void pushState() {
+	inline virtual void pushState() override {
 		stack.push_back(nextToken);
 	}
 
-	inline virtual void popState() {
+	inline virtual void popState() override {
 		nextToken = stack.back();
 		stack.pop_back();
 	}
 
-	inline virtual void yeetState() {
+	inline virtual void yeetState() override {
 		stack.pop_back();
 	}
 
@@ -102,24 +102,24 @@ public:
 	}
 
 public:
-	inline virtual Token peek() const {
+	inline virtual Token peek() const override {
 		return tokens[std::min<size_t>(tokens.size()-1, ind)];
 	}
 
-	inline virtual Token consume() {
+	inline virtual Token consume() override {
 		return tokens[std::min<size_t>(tokens.size()-1, ind++)];
 	}
 
-	inline virtual void pushState() {
+	inline virtual void pushState() override {
 		stack.push_back(ind);
 	}
 
-	inline virtual void popState() {
+	inline virtual void popState() override {
 		ind = stack.back();
 		stack.pop_back();
 	}
 
-	inline virtual void yeetState() {
+	inline virtual void yeetState() override {
 		stack.pop_back();
 	}
 };
